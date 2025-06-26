@@ -21,11 +21,11 @@ export default function Navbar () {
   };
 
   return (
-    <nav className={`navbar navbar-expand-lg navbar-light fixed-top transition-all duration-300 ${
+    <nav className={`navbar navbar-expand-lg navbar-light transition-all duration-300 ${
       scrolled ? 'bg-white shadow-lg' : 'bg-white bg-opacity-95'
     }`} style={{ backdropFilter: 'blur(10px)' }}>
       <div className="container">
-        <a className="navbar-brand fw-bold fs-3" href="#" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>
+        <a className="navbar-brand fw-bold fs-3" href="/" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>
           <i className="fas fa-heartbeat me-2"></i>MediConnect
         </a>
 
@@ -40,19 +40,19 @@ export default function Navbar () {
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto">
             <li className="nav-item">
-              <a className="nav-link fw-medium" href="#" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>Home</a>
+              <a className="nav-link" href="/" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>Home</a>
             </li>
             <li className="nav-item">
-              <a className="nav-link fw-medium" href="#" onClick={(e) => { e.preventDefault(); scrollToSection('features'); }}>Features</a>
+              <a className="nav-link" href="#" onClick={(e) => { e.preventDefault(); scrollToSection('features'); }}>Features</a>
             </li>
             <li className="nav-item">
-              <a className="nav-link fw-medium" href="#" onClick={(e) => { e.preventDefault(); scrollToSection('contact'); }}>Contact</a>
+              <a className="nav-link" href="#" onClick={(e) => { e.preventDefault(); scrollToSection('contact'); }}>Contact</a>
             </li>
             <li className="nav-item">
-              <a className="nav-link btn btn-outline-primary rounded-pill px-4 ms-2" href="#" >Login</a>
+              <a className="nav-link" href="/login" >Login</a>
             </li>
             <li className="nav-item">
-              <a className="nav-link btn btn-outline-primary rounded-pill px-4 ms-2" href="#" >Sign Up</a>
+              <a className="nav-link signup-btn" href="/signup" style={{padding: "10px 30px"}} >Sign Up</a>
             </li>
           </ul>
         </div>
