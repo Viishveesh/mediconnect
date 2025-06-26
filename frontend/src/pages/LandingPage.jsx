@@ -3,47 +3,46 @@ import Footer from '../components/Footer';
 import '../Styles/Landing.css';
 import background from '../components/Images/frontpage.jpeg'
 
-
 const Upperpage = () => {
   return (
-    <section id="home" className="position-relative overflow-hidden" style={{
-      background: 'linear-gradient(300deg, #2c5aa0, #fecfef)',
-      color: 'white',
-      paddingTop: '120px',
-      paddingBottom: '80px'
-    }}>
-      <div className="position-absolute top-0 start-0 w-100 h-100" style={{
-        backgroundImage: `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><defs><pattern id='grid' width='50' height='50' patternUnits='userSpaceOnUse'><path d='M 50 0 L 0 0 0 50' fill='none' stroke='rgba(255,255,255,0.1)' stroke-width='1'/></pattern></defs><rect width='100%' height='100%' fill='url(%23grid)'/></svg>")`,
-        opacity: 0.3
-      }}></div>
-      
-      <div className="container position-relative">
-        <div className="row align-items-center">
-          <div className="col-lg-6">
-            <h1 className="display-3 fw-bold mb-4">MediConnect - that fits your lifestyle</h1>
-            <p className="fs-5 mb-4 opacity-90">
-              Connect with healthcare professionals instantly. Save time, and access quality medical care from anywhere .
-            </p>
-            <div className="d-flex flex-wrap gap-3">
-              <button className="btn btn-outline-light btn-lg px-5 rounded-pill fw-semibold">
-                Get Started Today
-              </button>
-              <button className="btn btn-outline-light btn-lg px-5 rounded-pill fw-semibold">
-                Learn More
-              </button>
+      <section id="home" className="position-relative overflow-hidden" style={{
+        background: 'linear-gradient(300deg, #2c5aa0, #fecfef)',
+        color: 'white',
+        paddingTop: '120px',
+        paddingBottom: '80px'
+      }}>
+        <div className="position-absolute top-0 start-0 w-100 h-100" style={{
+          backgroundImage: `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><defs><pattern id='grid' width='50' height='50' patternUnits='userSpaceOnUse'><path d='M 50 0 L 0 0 0 50' fill='none' stroke='rgba(255,255,255,0.1)' stroke-width='1'/></pattern></defs><rect width='100%' height='100%' fill='url(%23grid)'/></svg>")`,
+          opacity: 0.3
+        }}></div>
+
+        <div className="container position-relative">
+          <div className="row align-items-center">
+            <div className="col-lg-6">
+              <h1 className="display-3 fw-bold mb-4">MediConnect - that fits your lifestyle</h1>
+              <p className="fs-5 mb-4 opacity-90">
+                Connect with healthcare professionals instantly. Save time, and access quality medical care from anywhere .
+              </p>
+              <div className="d-flex flex-wrap gap-3">
+                <button className="btn btn-outline-light btn-lg px-5 rounded-pill fw-semibold">
+                  Get Started Today
+                </button>
+                <button className="btn btn-outline-light btn-lg px-5 rounded-pill fw-semibold">
+                  Learn More
+                </button>
+              </div>
+            </div>
+            <div className="col-lg-6 text-center">
+              <img
+                  src={background}
+                  alt="Video Illustration"
+                  className="img-fluid rounded-3"
+                  style={{ maxHeight: '350px', opacity: 0.85 }}
+              />
             </div>
           </div>
-          <div className="col-lg-6 text-center">
-            <img
-                src={background}
-                alt="Video Illustration"
-                className="img-fluid rounded-3"
-                style={{ maxHeight: '350px', opacity: 0.85 }}
-                />
-          </div>
         </div>
-      </div>
-    </section>
+      </section>
   );
 };
 
@@ -82,37 +81,37 @@ const Features = () => {
   ];
 
   return (
-    <section id="features" className="py-5" style={{ backgroundColor: '#e3f2fd' }}>
-      <div className="container">
-        <div className="row mb-5">
-          <div className="col-lg-8 mx-auto text-center">
-            <h2 className="display-5 fw-bold mb-2">Why Choose Mediconnect?</h2>
+      <section id="features" className="py-5" style={{ backgroundColor: '#e3f2fd' }}>
+        <div className="container">
+          <div className="row mb-5">
+            <div className="col-lg-8 mx-auto text-center">
+              <h2 className="display-5 fw-bold mb-2">Why Choose Mediconnect?</h2>
+            </div>
+          </div>
+
+          <div className="row g-4">
+            {features.map((feature, index) => (
+                <div key={index} className="col-lg-4 col-md-6">
+                  <div className="card h-100 border-0 shadow-sm rounded-4 p-4 text-center">
+                    <div
+                        className="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center"
+                        style={{
+                          width: '80px',
+                          height: '80px',
+                          background: 'linear-gradient(135deg, #2c5aa0, #fecfef)',
+                          color: 'white'
+                        }}
+                    >
+                      <i className={`${feature.icon} fs-2`}></i>
+                    </div>
+                    <h4 className="fw-bold mb-3">{feature.title}</h4>
+                    <p className="text-muted">{feature.description}</p>
+                  </div>
+                </div>
+            ))}
           </div>
         </div>
-        
-        <div className="row g-4">
-          {features.map((feature, index) => (
-            <div key={index} className="col-lg-4 col-md-6">
-              <div className="card h-100 border-0 shadow-sm rounded-4 p-4 text-center">
-                <div 
-                  className="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center"
-                  style={{
-                    width: '80px',
-                    height: '80px',
-                    background: 'linear-gradient(135deg, #2c5aa0, #fecfef)',
-                    color: 'white'
-                  }}
-                >
-                  <i className={`${feature.icon} fs-2`}></i>
-                </div>
-                <h4 className="fw-bold mb-3">{feature.title}</h4>
-                <p className="text-muted">{feature.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
+      </section>
   );
 };
 
@@ -141,75 +140,79 @@ const Steps = () => {
   ];
 
   return (
-    <section id="how-it-works" className="py-5 bg-white">
-      <div className="container">
-        <div className="row mb-5">
-          <div className="col-lg-8 mx-auto text-center">
-            <h2 className="display-5 fw-bold mb-4">How MediConnect Works?</h2>
-            <p className="lead">Connect with the healtcare, just in 4 steps</p>
+      <section id="how-it-works" className="py-5 bg-white">
+        <div className="container">
+          <div className="row mb-5">
+            <div className="col-lg-8 mx-auto text-center">
+              <h2 className="display-5 fw-bold mb-4">How MediConnect Works?</h2>
+              <p className="lead">Connect with the healtcare, just in 4 steps</p>
+            </div>
+          </div>
+
+          <div className="row g-4">
+            {steps.map((step, index) => (
+                <div key={index} className="col-lg-3 col-md-6">
+                  <div className="text-center p-3">
+                    <div
+                        className="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center fw-bold fs-4"
+                        style={{
+                          width: '60px',
+                          height: '60px',
+                          background: 'linear-gradient(135deg, #2c5aa0, #fecfef)',
+                          color: 'white'
+                        }}
+                    >
+                      {step.number}
+                    </div>
+                    <h5 className="fw-bold mb-3">{step.title}</h5>
+                    <p className="text-muted">{step.description}</p>
+                  </div>
+                </div>
+            ))}
           </div>
         </div>
-        
-        <div className="row g-4">
-          {steps.map((step, index) => (
-            <div key={index} className="col-lg-3 col-md-6">
-              <div className="text-center p-3">
-                <div 
-                  className="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center fw-bold fs-4"
-                  style={{
-                    width: '60px',
-                    height: '60px',
-                    background: 'linear-gradient(135deg, #2c5aa0, #fecfef)',
-                    color: 'white'
-                  }}
-                >
-                  {step.number}
-                </div>
-                <h5 className="fw-bold mb-3">{step.title}</h5>
-                <p className="text-muted">{step.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
+      </section>
   );
 };
 
 const Bottompage = () => {
   return (
-    <section id="signup" className="py-5" style={{
+      <section id="signup" className="py-5" style={{
         background: 'linear-gradient(300deg, #2c5aa0, #fecfef)',
-      
-      color: 'white'
-    }}>
-      <div className="container">
-        <div className="row">
-          <div className="col-lg-8 mx-auto text-center">
-            <h2 className="display-5 fw-bold mb-4">Ready to Transform Your Healthcare Experience?</h2>
-            <p className="lead mb-4">Join the Mediconnect to meet, and choose over thousands of healthcare providers for the virtual care needs.</p>
-            <div className="d-flex flex-wrap justify-content-center gap-3">
-              <button className="btn btn-outline-light btn-lg px-5 rounded-pill fw-semibold">Start Free Trial</button>
-              <button className="btn btn-outline-light btn-lg px-5 rounded-pill fw-semibold">Request Demo</button>
+
+        color: 'white'
+      }}>
+        <div className="container">
+          <div className="row">
+            <div className="col-lg-8 mx-auto text-center">
+              <h2 className="display-5 fw-bold mb-4">Ready to Transform Your Healthcare Experience?</h2>
+              <p className="lead mb-4">Join the Mediconnect to meet, and choose over thousands of healthcare providers for the virtual care needs.</p>
+              <div className="d-flex flex-wrap justify-content-center gap-3">
+                <button className="btn btn-outline-light btn-lg px-5 rounded-pill fw-semibold">Start Free Trial</button>
+                <button className="btn btn-outline-light btn-lg px-5 rounded-pill fw-semibold">Request Demo</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
   );
 };
 
-const App = () => {
+const LandingPage = ({ onLogin, onNavigate, currentUser, onLogout }) => {
   return (
-    <div className="App">
-      <Navbar />
-      <Upperpage />
-      <Features />
-      <Steps />
-      <Bottompage />
-      <Footer />
-    </div>
+      <div className="App">
+        <Navbar
+            onLogin={onLogin}
+            currentUser={currentUser}
+            onLogout={onLogout}
+        />
+        <Upperpage />
+        <Features />
+        <Steps />
+        <Bottompage />
+        <Footer />
+      </div>
   );
 };
 
-export default App;
+export default LandingPage;
