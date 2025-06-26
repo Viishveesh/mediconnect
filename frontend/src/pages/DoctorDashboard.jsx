@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
 
 const DoctorDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
@@ -977,7 +975,7 @@ const DoctorDashboard = () => {
 
     return (
         <div className="App">
-            <Navbar />
+       
 
             {/* Dashboard Header */}
             <section className="py-5 mt-5" style={{ backgroundColor: '#f8f9fa' }}>
@@ -1072,7 +1070,7 @@ const DoctorDashboard = () => {
                 </div>
             </section>
 
-            <Footer />
+     
         </div>
     );
 };

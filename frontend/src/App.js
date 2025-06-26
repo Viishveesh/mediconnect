@@ -1,68 +1,48 @@
 import React, { useState } from 'react';
+
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
+// import pages 
+import Login from "./pages/auth/Login";
+import Signup from "./pages/auth/Signup";
 import LandingPage from './pages/LandingPage';
 import PatientDashboard from './pages/PatientDashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// import css 
+import "./assets/css/styles.css"
 
 function App() {
-
-  const [currentPage, setCurrentPage] = useState('landing');
-  const [userType, setUserType] = useState(null); // 'patient' or 'doctor'
-
-  const navigateTo = (page, type = null) => {
-    setCurrentPage(page);
-    if (type) setUserType(type);
-  };
-
-  const handleLogin = (type) => {
-    setUserType(type);
-    if (type === 'patient') {
-      setCurrentPage('patient-dashboard');
-    } else if (type === 'doctor') {
-      setCurrentPage('doctor-dashboard');
-    }
-  };
-
-  const handleLogout = () => {
-    setUserType(null);
-    setCurrentPage('landing');
-  };
-
-  const renderPage = () => {
-    switch(currentPage) {
-      case 'landing':
-        return <LandingPage
-            onLogin={handleLogin}
-            onNavigate={navigateTo}
-            currentUser={userType}
-            onLogout={handleLogout}
-        />;
-      case 'patient-dashboard':
-        return <PatientDashboard
-            onNavigate={navigateTo}
-            currentUser={userType}
-            onLogout={handleLogout}
-        />;
-      case 'doctor-dashboard':
-        return <DoctorDashboard
-            onNavigate={navigateTo}
-            currentUser={userType}
-            onLogout={handleLogout}
-        />;
-      default:
-        return <LandingPage
-            onLogin={handleLogin}
-            onNavigate={navigateTo}
-            currentUser={userType}
-            onLogout={handleLogout}
-        />;
-    }
-  };
-
-  return (
+  return(
+     <Router>
       <div className="App">
-        {renderPage()}
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          {/* Protected Route */}
+        <Route
+          path="/doctor/dashboard"
+          element={
+            <ProtectedRoute>
+              <DoctorDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/patient/dashboard"
+          element={
+            <ProtectedRoute>
+              <PatientDashboard />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+         
       </div>
-  );
+    </Router>
+  )
 }
 
 export default App;
