@@ -207,7 +207,6 @@ const App = () => {
       <Features />
       <Steps />
       <Bottompage />
-      <Footer />
     </div>
   );
 };
