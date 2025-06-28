@@ -1,46 +1,31 @@
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import '../Styles/Landing.css';
 import background from '../components/Images/frontpage.jpeg'
 
 
 const Upperpage = () => {
   return (
-    <section id="home" className="position-relative overflow-hidden" style={{
-      background: 'linear-gradient(300deg, #2c5aa0, #fecfef)',
-      color: 'white',
-      paddingTop: '120px',
-      paddingBottom: '80px'
-    }}>
-      <div className="position-absolute top-0 start-0 w-100 h-100" style={{
+    <section id="home" className="position-relative overflow-hidden">
+      {/* <div className="position-absolute top-0 start-0 w-100 h-100" style={{
         backgroundImage: `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'><defs><pattern id='grid' width='50' height='50' patternUnits='userSpaceOnUse'><path d='M 50 0 L 0 0 0 50' fill='none' stroke='rgba(255,255,255,0.1)' stroke-width='1'/></pattern></defs><rect width='100%' height='100%' fill='url(%23grid)'/></svg>")`,
         opacity: 0.3
-      }}></div>
+      }}></div> */}
       
       <div className="container position-relative">
         <div className="row align-items-center">
           <div className="col-lg-6">
-            <h1 className="display-3 fw-bold mb-4">MediConnect - that fits your lifestyle</h1>
-            <p className="fs-5 mb-4 opacity-90">
+            <h1 className="display-3 fw-bold mb-4 hero-title">MediConnect - that fits your lifestyle</h1>
+            <p className="mb-4 hero-p">
               Connect with healthcare professionals instantly. Save time, and access quality medical care from anywhere .
             </p>
             <div className="d-flex flex-wrap gap-3">
-              <button className="btn btn-outline-light btn-lg px-5 rounded-pill fw-semibold">
-                Get Started Today
+              <button className="btn btn-outline-light btn-lg book-btn">
+                Book an Appointment
               </button>
-              <button className="btn btn-outline-light btn-lg px-5 rounded-pill fw-semibold">
-                Learn More
-              </button>
+              
             </div>
           </div>
-          <div className="col-lg-6 text-center">
-            <img
-                src={background}
-                alt="Video Illustration"
-                className="img-fluid rounded-3"
-                style={{ maxHeight: '350px', opacity: 0.85 }}
-                />
-          </div>
+         
         </div>
       </div>
     </section>
@@ -99,7 +84,7 @@ const Features = () => {
                   style={{
                     width: '80px',
                     height: '80px',
-                    background: 'linear-gradient(135deg, #2c5aa0, #fecfef)',
+                    background: '#3B82F6',
                     color: 'white'
                   }}
                 >
@@ -159,7 +144,7 @@ const Steps = () => {
                   style={{
                     width: '60px',
                     height: '60px',
-                    background: 'linear-gradient(135deg, #2c5aa0, #fecfef)',
+                    background: '#3B82F6',
                     color: 'white'
                   }}
                 >
@@ -179,7 +164,7 @@ const Steps = () => {
 const Bottompage = () => {
   return (
     <section id="signup" className="py-5" style={{
-        background: 'linear-gradient(300deg, #2c5aa0, #fecfef)',
+        background: '#3B82F6',
       
       color: 'white'
     }}>
