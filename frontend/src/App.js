@@ -22,7 +22,8 @@ import Footer from './components/Footer';
 function App() {
   return(
      <Router>
-      <div className="App" style={{ paddingTop: '70px' }}>
+      <div className="App" >
+      {/* style={{ paddingTop: '70px' }} */}
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
@@ -30,11 +31,14 @@ function App() {
         {/* Protected Route */}
         <Route path="/doctor/dashboard" element={ <ProtectedRoute> <DoctorDashboard /> </ProtectedRoute>} />
         <Route path="/patient/dashboard" element={ <ProtectedRoute> <PatientDashboard /> </ProtectedRoute>} />
-        <Route path="/" element={<ProtectedRoute> <LandingPage /> </ProtectedRoute>} />
-        <Route path="/doctors" element={<ProtectedRoute><BrowseDoctors /> </ProtectedRoute>} />
+
+        <Route path="/doctors" element={<BrowseDoctors />} />
+        <Route path="/doctor/:doctorId" element={<DoctorProfile />} />
+        <Route path="/book-appointment/:doctorId" element={ <BookAppointment />} />
+        {/* <Route path="/doctors" element={<ProtectedRoute><BrowseDoctors /> </ProtectedRoute>} />
         <Route path="/doctor/:doctorId" element={<ProtectedRoute><DoctorProfile /> </ProtectedRoute>} />
-        <Route path="/book-appointment/:doctorId" element={<ProtectedRoute> <BookAppointment /> </ProtectedRoute>} />
-      </Routes>
+        <Route path="/book-appointment/:doctorId" element={<ProtectedRoute> <BookAppointment /> </ProtectedRoute>} /> */}
+      </Routes> 
       <Footer />
       </div>
     </Router>
