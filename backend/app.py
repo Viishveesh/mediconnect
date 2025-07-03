@@ -18,7 +18,7 @@ client = MongoClient(MONGO_URI)
 db = client.mediconnect
 users_collection = db.users
 
-@app.route("/signup", methods=["POST"])
+@app.route("/api/signup", methods=["POST"])
 def signup():
     data = request.json
     email = data.get("email")
@@ -44,7 +44,7 @@ def signup():
             "message": "Signup successful!"
         }), 201
 
-@app.route("/login", methods=["POST"])
+@app.route("/api/login", methods=["POST"])
 def login():
     data = request.json
     email = data.get("email")

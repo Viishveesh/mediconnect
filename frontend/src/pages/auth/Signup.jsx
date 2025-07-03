@@ -16,35 +16,46 @@ const Signup = ({ toggleForm }) => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (formData.password !== formData.confirmPassword) {
-      setMessage({ type: 'error', text: "Passwords don't match" });
-      return;
-    }
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[\W_]).{8,}$/;
 
-    try {
-      await axios.post("http://localhost:5000/signup", {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        password: formData.password,
-        role: formData.role
-      });
+  if (formData.password !== formData.confirmPassword) {
+    setMessage({ type: 'error', text: "Passwords don't match" });
+    return;
+  }
 
-      setMessage({ type: 'success', text: "Signup successful! Redirecting to login..." });
+  if (!passwordRegex.test(formData.password)) {
+    setMessage({
+      type: 'error',
+      text: "Password must be at least 8 characters long and include one uppercase letter, one lowercase letter, and one special character."
+    });
+    return;
+  }
 
-      setTimeout(() => {
-        navigate("/login"); // Redirect to login after 2 seconds
-      }, 2000);
-    } catch (err) {
-      console.error(err.response?.data || err.message);
-      setMessage({
-        type: 'error',
-        text: err.response?.data?.message || "Signup failed. Please try again."
-      });
-    }
-  };
+  try {
+    await axios.post("http://localhost:5000/api/signup", {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      password: formData.password,
+      role: formData.role
+    });
+
+    setMessage({ type: 'success', text: "Signup successful! Redirecting to login..." });
+
+    setTimeout(() => {
+      navigate("/login");
+    }, 2000);
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    setMessage({
+      type: 'error',
+      text: err.response?.data?.message || "Signup failed. Please try again."
+    });
+  }
+};
+
 
   return (
     <div className="auth-container">
