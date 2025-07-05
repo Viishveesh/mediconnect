@@ -17,13 +17,21 @@ const Login = ({ toggleForm }) => {
 
     try {
       const res = await axios.post("http://localhost:5000/api/login", formData);
-      const token = res.data.token;
+      const { token, role } = res.data;
 
-      localStorage.setItem("token", token); 
+      localStorage.setItem("token", token);
+      localStorage.setItem("role", role);
+
       setMessage({ type: 'success', text: 'Login successful! Redirecting...' });
 
       setTimeout(() => {
-        navigate("/doctor/dashboard"); // change as per your routing
+        if (role === 'doctor') {
+          navigate("/doctor/dashboard");
+        } else if (role === 'patient') {
+          navigate("/patient/dashboard");
+        } else {
+          navigate("/"); // fallback
+        }
       }, 2000);
     } catch (err) {
       console.error(err.response?.data || err.message);
@@ -33,6 +41,7 @@ const Login = ({ toggleForm }) => {
       });
     }
   };
+
 
   return (
     <div className="auth-container">

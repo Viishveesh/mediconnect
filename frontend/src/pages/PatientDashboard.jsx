@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import DoctorList from './DoctorList';
 
 const PatientDashboard = () => {
-    const [activeTab, setActiveTab] = useState('overview');
+    const [activeTab, setActiveTab] = useState('available');
 
     // Dummy data
     const patientData = {
@@ -329,6 +330,12 @@ const PatientDashboard = () => {
         </div>
     );
 
+
+    const renderAvailableDoctors = () => (
+        <DoctorList/>
+    );
+
+
     const renderMedicalRecords = () => (
         <div className="row g-4">
             <div className="col-12">
@@ -586,12 +593,13 @@ const PatientDashboard = () => {
 
     const renderTabContent = () => {
         switch(activeTab) {
+            case 'available': return renderAvailableDoctors();
             case 'overview': return renderOverview();
             case 'appointments': return renderAppointments();
             case 'records': return renderMedicalRecords();
             case 'messages': return renderMessages();
             case 'profile': return renderProfile();
-            default: return renderOverview();
+            default: return renderAvailableDoctors();
         }
     };
 
@@ -625,6 +633,14 @@ const PatientDashboard = () => {
                     <ul className="nav nav-pills">
                         <li className="nav-item">
                             <button
+                                className={`nav-link ${activeTab === 'available' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('available')}
+                            >
+                                <i className="fas fa-user-md me-2"></i>Available Doctors
+                            </button>
+                        </li>
+                        <li className="nav-item">
+                            <button
                                 className={`nav-link ${activeTab === 'overview' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('overview')}
                             >
@@ -639,6 +655,9 @@ const PatientDashboard = () => {
                                 <i className="fas fa-calendar-check me-2"></i>Appointments
                             </button>
                         </li>
+
+
+
                         <li className="nav-item">
                             <button
                                 className={`nav-link ${activeTab === 'records' ? 'active' : ''}`}

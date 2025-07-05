@@ -63,5 +63,18 @@ def login():
 
     return jsonify({"token": token})
 
+#doctor's profile:
+@app.route("/api/doctors", methods=["GET"])
+def get_doctor_names():
+    doctors = users_collection.find({"role": "doctor"}, {"_id": 0, "firstName": 1, "lastName": 1})
+    doctor_list = [
+        {
+            "name": f"{doc.get('firstName', '')} {doc.get('lastName', '')}".strip()
+        }
+        for doc in doctors
+    ]
+    return jsonify(doctor_list), 200
+
+
 if __name__ == "__main__":
     app.run(debug=True)
