@@ -61,7 +61,10 @@ def login():
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     }, app.config['SECRET_KEY'], algorithm="HS256")
 
-    return jsonify({"token": token})
+    return jsonify({
+        "token": token,
+        "role": user.get("role") 
+    })
 
 #doctor's profile:
 @app.route("/api/doctors", methods=["GET"])
