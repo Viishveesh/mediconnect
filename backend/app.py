@@ -6,6 +6,8 @@ from pymongo import MongoClient
 import bcrypt
 from dotenv import load_dotenv
 import os
+from routes.doctor_schedule import doctor_schedule
+
 
 load_dotenv()
 app = Flask(__name__)
@@ -16,8 +18,13 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 MONGO_URI = os.getenv('MONGO_URI')
 client = MongoClient(MONGO_URI)
 db = client.mediconnect
+app.db = db
 users_collection = db.users
 
+# Register custom blueprints
+app.register_blueprint(doctor_schedule)
+
+# Signup route
 @app.route("/api/signup", methods=["POST"])
 def signup():
     data = request.json
@@ -44,6 +51,7 @@ def signup():
             "message": "Signup successful!"
         }), 201
 
+# Login route
 @app.route("/api/login", methods=["POST"])
 def login():
     data = request.json

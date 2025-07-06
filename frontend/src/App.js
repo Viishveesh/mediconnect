@@ -9,6 +9,7 @@ import LandingPage from './pages/LandingPage';
 import PatientDashboard from './pages/PatientDashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import DoctorSchedule from './pages/DoctorSchedule';
 
 // import css 
 import "./assets/css/styles.css"
@@ -22,13 +23,15 @@ import Footer from './components/Footer';
 function App() {
   return(
      <Router>
-      <div className="App" style={{ paddingTop: '70px' }}>
+      <div className="App">
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         {/* Protected Route */}
         <Route path="/doctor/dashboard" element={ <ProtectedRoute> <DoctorDashboard /> </ProtectedRoute>} />
+        <Route path="/doctor/schedule/:doctorId" element={<ProtectedRoute> <DoctorSchedule /> </ProtectedRoute>} />
+        
         <Route path="/patient/dashboard" element={ <ProtectedRoute> <PatientDashboard /> </ProtectedRoute>} />
         <Route path="/" element={<ProtectedRoute> <LandingPage /> </ProtectedRoute>} />
         <Route path="/doctors" element={<ProtectedRoute><BrowseDoctors /> </ProtectedRoute>} />

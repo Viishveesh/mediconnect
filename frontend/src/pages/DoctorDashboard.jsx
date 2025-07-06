@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const DoctorDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
+
+    const navigate = useNavigate();
+
+    const handleViewSchedule = () => {
+        navigate('/doctor/schedule/686972d642b66e848a66cebe');
+    };
+
 
     // Dummy data
     const doctorData = {
@@ -975,8 +983,14 @@ const DoctorDashboard = () => {
 
     return (
         <div className="App">
-       
-
+        <div className="p-6">
+            <button
+                onClick={handleViewSchedule}
+                className="bg-primary text-white px-4 py-2 rounded"
+            >
+                View Schedule
+            </button>
+        </div>
             {/* Dashboard Header */}
             <section className="py-5 mt-5" style={{ backgroundColor: '#f8f9fa' }}>
                 <div className="container">
