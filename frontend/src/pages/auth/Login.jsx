@@ -17,10 +17,12 @@ const Login = ({ toggleForm }) => {
 
     try {
       const res = await axios.post("http://localhost:5000/api/login", formData);
-      const { token, role } = res.data;
+      const { token, role, name, email } = res.data;
 
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
+      localStorage.setItem("name", name);
+      localStorage.setItem("email", email);
 
       setMessage({ type: 'success', text: 'Login successful! Redirecting...' });
 
