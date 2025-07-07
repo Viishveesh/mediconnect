@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import LogOut from '../auth/LogOut.jsx';
+import { useNavigate } from 'react-router-dom';
+
 
 const PatientDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
+    const navigate = useNavigate();
+
 
     // Dummy data
     const patientData = {
@@ -450,7 +454,7 @@ const PatientDashboard = () => {
                                         Next available: {doctor.nextAvailable}
                                     </p>
                                     <div className="d-flex gap-2">
-                                        <button className="btn btn-sm text-white" style={{
+                                        <button onClick={() => navigate("/book-appointment/doc002")} className="btn btn-sm text-white" style={{
                                             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                                             border: 'none',
                                             borderRadius: '8px',
