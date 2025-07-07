@@ -62,14 +62,21 @@ def login():
 
     if not user or not bcrypt.checkpw(password.encode('utf-8'), user["password"]):
         return jsonify({"message": "Invalid Credentials"}), 401
-    
+
+    # Include role and doctorId in the token
     token = jwt.encode({
         "email": email,
         "role": user.get("role"),
+        "doctorId": str(user["_id"]),
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     }, app.config['SECRET_KEY'], algorithm="HS256")
 
-    return jsonify({"token": token})
+    # Send both token and role to frontend
+    return jsonify({
+        "token": token,
+        "role": user.get("role"),
+        "doctorId": str(user["_id"])
+    })
 
 #doctor's profile:
 @app.route("/api/doctors", methods=["GET"])

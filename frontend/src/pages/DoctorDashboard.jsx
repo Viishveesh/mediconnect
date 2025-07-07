@@ -983,10 +983,12 @@ const DoctorDashboard = () => {
 
     return (
         <div className="App">
+
+        {/* schedule button */}
         <div className="p-6">
             <button
                 onClick={handleViewSchedule}
-                className="bg-primary text-white px-4 py-2 rounded"
+                className="view-schedule"
             >
                 View Schedule
             </button>
