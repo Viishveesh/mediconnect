@@ -5,7 +5,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import axios from "axios";
 import Modal from "react-modal";
-// import "../assets/css/styles.css"; // Your provided modal + button CSS
+import "../assets/css/styles.css"; 
 
 const DoctorSchedule = () => {
   const { doctorId } = useParams();
@@ -19,10 +19,8 @@ const DoctorSchedule = () => {
   });
 
   useEffect(() => {
-    // Ensures modal works after DOM loads
     Modal.setAppElement("#root");
 
-    // Fetch availability + busy slots (combined route)
     axios
       .get(`http://localhost:5000/doctor/schedule?doctorId=${doctorId}`)
       .then((res) => {
@@ -45,25 +43,38 @@ const DoctorSchedule = () => {
       });
   }, [doctorId]);
 
-  const handleAddSlotClick = () => {
-    // Clear previous slot data before showing modal
+  const resetSlotData = () => {
     setSlotData({
       startTime: "",
       endTime: "",
       type: "available",
       reason: "",
     });
-    setIsModalOpen(true);
+  };
+
+  const formatToLocalDateTime = (isoString) => {
+    const local = new Date(isoString);
+    const offset = local.getTimezoneOffset();
+    local.setMinutes(local.getMinutes() - offset);
+    return local.toISOString().slice(0, 16); // "yyyy-MM-ddTHH:mm"
   };
 
   const handleSlotSelect = (info) => {
-    // Pre-fill modal with selected slot time
+    const start = formatToLocalDateTime(info.startStr);
+    const end = formatToLocalDateTime(info.endStr);
+
     setSlotData({
-      startTime: info.startStr,
-      endTime: info.endStr,
+      startTime: start,
+      endTime: end,
       type: "available",
       reason: "",
     });
+
+    setIsModalOpen(true);
+  };
+
+  const handleAddSlotClick = () => {
+    resetSlotData();
     setIsModalOpen(true);
   };
 
@@ -77,13 +88,8 @@ const DoctorSchedule = () => {
         reason: slotData.reason,
       });
       setIsModalOpen(false);
-      setSlotData({
-        startTime: "",
-        endTime: "",
-        type: "available",
-        reason: "",
-      });
-      window.location.reload(); // Refresh events
+      resetSlotData();
+      window.location.reload(); // refresh to show new slot
     } catch (err) {
       console.error("Failed to add slot", err);
     }
@@ -93,7 +99,7 @@ const DoctorSchedule = () => {
     <div className="p-4">
       <h2 className="text-2xl font-semibold mb-2">Doctor Schedule</h2>
 
-      <button className="add-slot-btn" onClick={() => setIsModalOpen(true)} >
+      <button className="add-slot-btn" onClick={handleAddSlotClick}>
         + Add Slot
       </button>
 
@@ -113,7 +119,10 @@ const DoctorSchedule = () => {
 
       <Modal
         isOpen={isModalOpen}
-        onRequestClose={() => setIsModalOpen(false)}
+        onRequestClose={() => {
+          resetSlotData();
+          setIsModalOpen(false);
+        }}
         overlayClassName="modal-overlay"
         className="modal-content"
       >
@@ -166,7 +175,10 @@ const DoctorSchedule = () => {
           <div className="modal-buttons">
             <button
               type="button"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => {
+                resetSlotData();
+                setIsModalOpen(false);
+              }}
               className="modal-cancel"
             >
               Cancel
