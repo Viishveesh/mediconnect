@@ -26,6 +26,7 @@ users_collection = db.users
 appointments_collection = db.appointment
 messages_collection = db.messages
 conversations_collection = db.conversations
+public_keys_collection = db.public_keys
 
 @app.route("/api/signup", methods=["POST"])
 def signup():
@@ -282,14 +283,18 @@ def get_messages(current_user, conversation_id):
             sender = users_collection.find_one({"email": msg.get('sender_email')})
             sender_name = f"{sender.get('firstName', '')} {sender.get('lastName', '')}".strip() if sender else "Unknown"
             
+            # Return encrypted data instead of plain text message
+            message_data = msg.get('encrypted_data') if msg.get('encrypted', False) else msg.get('message', '')
+            
             result.append({
                 "id": str(msg.get('_id')),
                 "sender_email": msg.get('sender_email'),
                 "sender_name": sender_name,
                 "sender_role": msg.get('sender_role'),
-                "message": msg.get('message'),
+                "message": message_data,
                 "timestamp": msg.get('timestamp'),
-                "read": msg.get('read', False)
+                "read": msg.get('read', False),
+                "encrypted": msg.get('encrypted', False)
             })
         
         # Mark messages as read for current user
@@ -311,10 +316,14 @@ def send_message(current_user, conversation_id):
     
     try:
         data = request.get_json()
-        message_text = data.get('message', '').strip()
+        encrypted_message = data.get('message')
         
-        if not message_text:
+        if not encrypted_message:
             return jsonify({"error": "Message cannot be empty"}), 400
+        
+        # Validate encrypted message format
+        if not isinstance(encrypted_message, dict) or 'encrypted' not in encrypted_message or 'iv' not in encrypted_message:
+            return jsonify({"error": "Invalid encrypted message format. Expected {encrypted: [...], iv: [...]}"}), 400
         
         conversation = conversations_collection.find_one({"_id": ObjectId(conversation_id)})
         if not conversation:
@@ -326,25 +335,26 @@ def send_message(current_user, conversation_id):
         if user_email not in [conversation.get('doctor_email'), conversation.get('patient_email')]:
             return jsonify({"error": "Unauthorized"}), 403
         
-        # Create message
+        # Create message with encrypted data
         message_doc = {
             "conversation_id": ObjectId(conversation_id),
             "sender_email": user_email,
             "sender_role": user_role,
-            "message": message_text,
+            "encrypted_data": encrypted_message,  # Store the encrypted blob
             "timestamp": datetime.utcnow(),
-            "read": False
+            "read": False,
+            "encrypted": True
         }
         
         messages_collection.insert_one(message_doc)
         
-        # Update conversation
+        # Update conversation (don't store encrypted message as last_message)
         other_role = 'patient' if user_role == 'doctor' else 'doctor'
         conversations_collection.update_one(
             {"_id": ObjectId(conversation_id)},
             {
                 "$set": {
-                    "last_message": message_text,
+                    "last_message": "[Encrypted Message]",  # Generic placeholder
                     "last_message_time": datetime.utcnow()
                 },
                 "$inc": {f"unread_count_{other_role}": 1}
@@ -411,6 +421,55 @@ def start_conversation(current_user):
         "conversation_id": str(result.inserted_id),
         "message": "Conversation created successfully"
     }), 201
+
+@app.route('/api/public-keys', methods=['POST'])
+@token_required
+def store_public_keys(current_user):
+    """Store user's public keys for encryption"""
+    try:
+        data = request.get_json()
+        user_email = current_user.get('email')
+        
+        public_keys_doc = {
+            "user_email": user_email,
+            "public_keys": data.get('public_keys'),
+            "updated_at": datetime.utcnow()
+        }
+        
+        # Upsert public keys
+        public_keys_collection.update_one(
+            {"user_email": user_email},
+            {"$set": public_keys_doc},
+            upsert=True
+        )
+        
+        return jsonify({"message": "Public keys stored successfully"}), 201
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route('/api/public-keys/<other_user_email>', methods=['GET'])
+@token_required
+def get_public_keys(current_user, other_user_email):
+    """Get another user's public keys for encryption"""
+    try:
+        # Verify the other user exists
+        other_user = users_collection.find_one({"email": other_user_email})
+        if not other_user:
+            return jsonify({"error": "User not found"}), 404
+            
+        # Get their public keys
+        keys_doc = public_keys_collection.find_one({"user_email": other_user_email})
+        if not keys_doc:
+            return jsonify({"error": "Public keys not found"}), 404
+            
+        return jsonify({
+            "user_email": other_user_email,
+            "public_keys": keys_doc.get('public_keys')
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 if __name__ == "__main__":
     app.run(debug=True)

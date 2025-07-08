@@ -24,7 +24,7 @@ export const useMessages = () => {
   }, []);
 
   // Load messages for a specific conversation
-  const loadMessages = useCallback(async (conversationId) => {
+  const loadMessages = useCallback(async (conversationId, otherUserEmail) => {
     if (!conversationId) {
       setMessages([]);
       return;
@@ -33,7 +33,7 @@ export const useMessages = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await messageService.getMessages(conversationId);
+      const response = await messageService.getMessages(conversationId, otherUserEmail);
       setMessages(response.messages || []);
     } catch (err) {
       setError('Failed to load messages');
@@ -44,15 +44,15 @@ export const useMessages = () => {
   }, []);
 
   // Send a message
-  const sendMessage = useCallback(async (conversationId, messageText) => {
+  const sendMessage = useCallback(async (conversationId, messageText, otherUserEmail) => {
     if (!conversationId || !messageText.trim()) return;
 
     try {
-      await messageService.sendMessage(conversationId, messageText.trim());
+      await messageService.sendMessage(conversationId, messageText.trim(), otherUserEmail);
       
       // Reload messages and conversations to get updated data
       await Promise.all([
-        loadMessages(conversationId),
+        loadMessages(conversationId, otherUserEmail),
         loadConversations()
       ]);
       
@@ -81,7 +81,7 @@ export const useMessages = () => {
   const selectConversation = useCallback((conversation) => {
     setActiveConversation(conversation);
     if (conversation) {
-      loadMessages(conversation.conversation_id);
+      loadMessages(conversation.conversation_id, conversation.other_user_email);
     } else {
       setMessages([]);
     }
