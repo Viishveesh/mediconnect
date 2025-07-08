@@ -24,6 +24,8 @@ client = MongoClient(MONGO_URI)
 db = client.mediconnect
 users_collection = db.users
 appointments_collection = db.appointment
+messages_collection = db.messages
+conversations_collection = db.conversations
 
 @app.route("/api/signup", methods=["POST"])
 def signup():
@@ -223,6 +225,192 @@ def get_booked_slots(doctor_id, date):
 
     times = [slot["time"] for slot in booked]
     return jsonify({"bookedSlots": times})
+
+@app.route('/api/conversations', methods=['GET'])
+@token_required
+def get_conversations(current_user):
+    user_email = current_user.get('email')
+    user_role = current_user.get('role')
+    
+    conversations = conversations_collection.find({
+        "$or": [
+            {"doctor_email": user_email},
+            {"patient_email": user_email}
+        ]
+    }).sort("last_message_time", -1)
+    
+    result = []
+    for conv in conversations:
+        other_user_email = conv.get('patient_email') if user_role == 'doctor' else conv.get('doctor_email')
+        other_user = users_collection.find_one({"email": other_user_email})
+        
+        if other_user:
+            full_name = f"{other_user.get('firstName', '')} {other_user.get('lastName', '')}".strip()
+            result.append({
+                "id": str(conv.get('_id')),
+                "conversation_id": str(conv.get('_id')),
+                "other_user_name": full_name,
+                "other_user_email": other_user_email,
+                "other_user_role": other_user.get('role'),
+                "last_message": conv.get('last_message', ''),
+                "last_message_time": conv.get('last_message_time'),
+                "unread_count": conv.get(f'unread_count_{user_role}', 0)
+            })
+    
+    return jsonify({"conversations": result})
+
+@app.route('/api/conversations/<conversation_id>/messages', methods=['GET'])
+@token_required
+def get_messages(current_user, conversation_id):
+    from bson import ObjectId
+    
+    try:
+        conversation = conversations_collection.find_one({"_id": ObjectId(conversation_id)})
+        if not conversation:
+            return jsonify({"error": "Conversation not found"}), 404
+        
+        user_email = current_user.get('email')
+        if user_email not in [conversation.get('doctor_email'), conversation.get('patient_email')]:
+            return jsonify({"error": "Unauthorized"}), 403
+        
+        messages = messages_collection.find({
+            "conversation_id": ObjectId(conversation_id)
+        }).sort("timestamp", 1)
+        
+        result = []
+        for msg in messages:
+            sender = users_collection.find_one({"email": msg.get('sender_email')})
+            sender_name = f"{sender.get('firstName', '')} {sender.get('lastName', '')}".strip() if sender else "Unknown"
+            
+            result.append({
+                "id": str(msg.get('_id')),
+                "sender_email": msg.get('sender_email'),
+                "sender_name": sender_name,
+                "sender_role": msg.get('sender_role'),
+                "message": msg.get('message'),
+                "timestamp": msg.get('timestamp'),
+                "read": msg.get('read', False)
+            })
+        
+        # Mark messages as read for current user
+        user_role = current_user.get('role')
+        conversations_collection.update_one(
+            {"_id": ObjectId(conversation_id)},
+            {"$set": {f"unread_count_{user_role}": 0}}
+        )
+        
+        return jsonify({"messages": result})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route('/api/conversations/<conversation_id>/send', methods=['POST'])
+@token_required
+def send_message(current_user, conversation_id):
+    from bson import ObjectId
+    
+    try:
+        data = request.get_json()
+        message_text = data.get('message', '').strip()
+        
+        if not message_text:
+            return jsonify({"error": "Message cannot be empty"}), 400
+        
+        conversation = conversations_collection.find_one({"_id": ObjectId(conversation_id)})
+        if not conversation:
+            return jsonify({"error": "Conversation not found"}), 404
+        
+        user_email = current_user.get('email')
+        user_role = current_user.get('role')
+        
+        if user_email not in [conversation.get('doctor_email'), conversation.get('patient_email')]:
+            return jsonify({"error": "Unauthorized"}), 403
+        
+        # Create message
+        message_doc = {
+            "conversation_id": ObjectId(conversation_id),
+            "sender_email": user_email,
+            "sender_role": user_role,
+            "message": message_text,
+            "timestamp": datetime.utcnow(),
+            "read": False
+        }
+        
+        messages_collection.insert_one(message_doc)
+        
+        # Update conversation
+        other_role = 'patient' if user_role == 'doctor' else 'doctor'
+        conversations_collection.update_one(
+            {"_id": ObjectId(conversation_id)},
+            {
+                "$set": {
+                    "last_message": message_text,
+                    "last_message_time": datetime.utcnow()
+                },
+                "$inc": {f"unread_count_{other_role}": 1}
+            }
+        )
+        
+        return jsonify({"message": "Message sent successfully"}), 201
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route('/api/conversations/start', methods=['POST'])
+@token_required
+def start_conversation(current_user):
+    data = request.get_json()
+    other_user_email = data.get('other_user_email')
+    
+    if not other_user_email:
+        return jsonify({"error": "Other user email is required"}), 400
+    
+    other_user = users_collection.find_one({"email": other_user_email})
+    if not other_user:
+        return jsonify({"error": "User not found"}), 404
+    
+    user_email = current_user.get('email')
+    user_role = current_user.get('role')
+    other_role = other_user.get('role')
+    
+    # Ensure it's a doctor-patient conversation
+    if {user_role, other_role} != {'doctor', 'patient'}:
+        return jsonify({"error": "Conversations only allowed between doctors and patients"}), 400
+    
+    # Check if conversation already exists
+    existing_conv = conversations_collection.find_one({
+        "$or": [
+            {"doctor_email": user_email, "patient_email": other_user_email},
+            {"doctor_email": other_user_email, "patient_email": user_email}
+        ]
+    })
+    
+    if existing_conv:
+        return jsonify({
+            "conversation_id": str(existing_conv.get('_id')),
+            "message": "Conversation already exists"
+        })
+    
+    # Create new conversation
+    doctor_email = user_email if user_role == 'doctor' else other_user_email
+    patient_email = other_user_email if user_role == 'doctor' else user_email
+    
+    conversation_doc = {
+        "doctor_email": doctor_email,
+        "patient_email": patient_email,
+        "created_at": datetime.utcnow(),
+        "last_message": "",
+        "last_message_time": datetime.utcnow(),
+        "unread_count_doctor": 0,
+        "unread_count_patient": 0
+    }
+    
+    result = conversations_collection.insert_one(conversation_doc)
+    
+    return jsonify({
+        "conversation_id": str(result.inserted_id),
+        "message": "Conversation created successfully"
+    }), 201
 
 if __name__ == "__main__":
     app.run(debug=True)
