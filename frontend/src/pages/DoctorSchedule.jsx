@@ -5,7 +5,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import axios from "axios";
 import Modal from "react-modal";
-import "../assets/css/styles.css"; 
+import "../assets/css/styles.css";
 
 const DoctorSchedule = () => {
   const { doctorId } = useParams();
@@ -20,28 +20,32 @@ const DoctorSchedule = () => {
 
   useEffect(() => {
     Modal.setAppElement("#root");
-
-    axios
-      .get(`http://localhost:5000/doctor/schedule?doctorId=${doctorId}`)
-      .then((res) => {
-        const mappedEvents = res.data.map((slot) => ({
-          id: slot._id,
-          title:
-            slot.type === "available"
-              ? "Available"
-              : `Busy: ${slot.reason || "Unavailable"}`,
-          start: slot.startTime,
-          end: slot.endTime,
-          backgroundColor: slot.type === "available" ? "#4CAF50" : "#FF5252",
-          borderColor: "#000",
-          textColor: "#fff",
-        }));
-        setEvents(mappedEvents);
-      })
-      .catch((err) => {
-        console.error("Error fetching schedule", err);
-      });
+    fetchSchedule();
   }, [doctorId]);
+
+  const fetchSchedule = async () => {
+    try {
+      const res = await axios.get(
+        `http://localhost:5000/doctor/schedule?doctorId=${doctorId}`
+      );
+      const mappedEvents = res.data.map((slot) => ({
+        id: slot._id,
+        title:
+          slot.type === "available"
+            ? "Available"
+            : `Busy: ${slot.reason || "Unavailable"}`,
+        start: slot.startTime,
+        end: slot.endTime,
+        backgroundColor: slot.type === "available" ? "#38A169" : "#E53E3E",
+        borderRadius: "8px",
+        borderColor: "#ccc",
+        textColor: "#ffffff",
+      }));
+      setEvents(mappedEvents);
+    } catch (err) {
+      console.error("Error fetching schedule", err);
+    }
+  };
 
   const resetSlotData = () => {
     setSlotData({
@@ -56,7 +60,7 @@ const DoctorSchedule = () => {
     const local = new Date(isoString);
     const offset = local.getTimezoneOffset();
     local.setMinutes(local.getMinutes() - offset);
-    return local.toISOString().slice(0, 16); // "yyyy-MM-ddTHH:mm"
+    return local.toISOString().slice(0, 16);
   };
 
   const handleSlotSelect = (info) => {
@@ -80,18 +84,45 @@ const DoctorSchedule = () => {
 
   const handleAddSlot = async () => {
     try {
-      await axios.post("http://localhost:5000/doctor/availability", {
+      const endpoint =
+        slotData.type === "available"
+          ? "http://localhost:5000/doctor/availability"
+          : "http://localhost:5000/doctor/busy";
+
+      await axios.post(endpoint, {
         doctorId,
         startTime: slotData.startTime,
         endTime: slotData.endTime,
-        type: slotData.type,
-        reason: slotData.reason,
+        reason: slotData.reason, // for busy, optional for available
       });
+
       setIsModalOpen(false);
       resetSlotData();
-      window.location.reload(); // refresh to show new slot
+      fetchSchedule(); // reload calendar slots without full reload
     } catch (err) {
       console.error("Failed to add slot", err);
+    }
+  };
+
+  const handleEventClick = async (info) => {
+    const { id, extendedProps, title } = info.event;
+    const isBusy = title.toLowerCase().includes("busy");
+
+    if (
+      window.confirm(
+        `Do you want to delete this ${isBusy ? "busy" : "available"} slot?`
+      )
+    ) {
+      try {
+        const endpoint = isBusy
+          ? `http://localhost:5000/doctor/busy/${id}`
+          : `http://localhost:5000/doctor/availability/${id}`;
+
+        await axios.delete(endpoint);
+        fetchSchedule(); // re-fetch the schedule without reloading the page
+      } catch (err) {
+        console.error("Failed to delete slot", err);
+      }
     }
   };
 
@@ -103,18 +134,39 @@ const DoctorSchedule = () => {
         + Add Slot
       </button>
 
-      <div style={{ height: "500px", overflowY: "hidden" }}>
-        <FullCalendar
-          plugins={[timeGridPlugin, interactionPlugin]}
-          initialView="timeGridWeek"
-          events={events}
-          height="100%"
-          slotMinTime="07:00:00"
-          slotMaxTime="21:00:00"
-          allDaySlot={false}
-          selectable={true}
-          select={handleSlotSelect}
-        />
+      <div
+        style={{
+          height: "500px",
+          overflowY: "hidden",
+          display: "flex",
+          justifyContent: "center",
+          paddingBottom: "30px",
+          paddingTop: "10px",
+        }}
+      >
+        <div
+          style={{
+            width: "95%",
+            backgroundColor: "#ffffff",
+            borderRadius: "16px",
+            boxShadow: "0 8px 20px rgba(0, 0, 0, 0.1)",
+            padding: "20px",
+          }}
+        >
+          <FullCalendar
+            plugins={[timeGridPlugin, interactionPlugin]}
+            initialView="timeGridWeek"
+            events={events}
+            height="100%"
+            slotMinTime="07:00:00"
+            slotMaxTime="21:00:00"
+            allDaySlot={false}
+            selectable={true}
+            eventOverlap={false}
+            select={handleSlotSelect}
+            eventClick={handleEventClick}
+          />
+        </div>
       </div>
 
       <Modal

@@ -311,6 +311,10 @@
   cursor: pointer;
 }
 
+.add-slot-btn:hover {
+  background-color: #2563eb;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -326,7 +330,6 @@
 }
 
 .modal-content {
-  /* background: rgba(255, 255, 255, 0.85); */
   background-color: #1f1f1f;
   border-radius: 18px;
   padding: 28px;
@@ -369,6 +372,10 @@
   outline: none;
 }
 
+.modal-content label{
+  color: #edecec;
+}
+
 .modal-content input:focus,
 .modal-content select:focus {
   border-color: #32746D;
@@ -403,7 +410,7 @@
 }
 
 .modal-cancel:hover,
-.modal-save:hover {
+.modal-save:hover{
   opacity: 0.85;
 }
 
