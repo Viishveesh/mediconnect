@@ -1,99 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState } from 'react';
 import LogOut from '../auth/LogOut.jsx';
-import DoctorProfile from './DoctorProfile.jsx';
 
 const DoctorDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
-    const [doctorData, setDoctorData] = useState(null);
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchDoctorProfile();
-    }, []);
-
-    const fetchDoctorProfile = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            console.log('Making API call to fetch doctor profile...');
-            const response = await axios.get('http://localhost:5000/api/doctor/profile', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            
-            console.log('Profile data received:', response.data);
-            const profileData = response.data;
-            setDoctorData({
-                name: `Dr. ${profileData.firstName} ${profileData.lastName}`,
-                specialty: profileData.specialization || 'Doctor',
-                email: profileData.email,
-                phone: profileData.contactNumber || 'N/A',
-                clinicName: profileData.clinicName || 'N/A',
-                experience: profileData.experience ? `${profileData.experience} years` : 'N/A',
-                qualification: profileData.qualification || 'N/A',
-                consultationFee: profileData.consultationFee || 0,
-                address: profileData.address || 'N/A',
-                rating: 4.8, // This would come from ratings API
-                totalPatients: 342 // This would come from patients API
-            });
-        } catch (error) {
-            console.error('Error fetching doctor profile:', error);
-            console.log('Error details:', error.response?.data);
-            
-            // If profile doesn't exist (404), get user data from token
-            if (error.response?.status === 404) {
-                try {
-                    const token = localStorage.getItem('token');
-                    const decodedToken = JSON.parse(atob(token.split('.')[1]));
-                    console.log('Using token data for fallback:', decodedToken);
-                    
-                    setDoctorData({
-                        name: "Doctor",
-                        specialty: "Doctor",
-                        email: decodedToken.email || "N/A",
-                        phone: "N/A",
-                        clinicName: "N/A",
-                        experience: "N/A",
-                        qualification: "N/A",
-                        consultationFee: 0,
-                        address: "N/A",
-                        rating: 0,
-                        totalPatients: 0
-                    });
-                } catch (tokenError) {
-                    console.error('Error decoding token:', tokenError);
-                    setDoctorData({
-                        name: "Doctor",
-                        specialty: "Doctor",
-                        email: "N/A",
-                        phone: "N/A",
-                        clinicName: "N/A",
-                        experience: "N/A",
-                        qualification: "N/A",
-                        consultationFee: 0,
-                        address: "N/A",
-                        rating: 0,
-                        totalPatients: 0
-                    });
-                }
-            } else {
-                // Set default data for other errors
-                setDoctorData({
-                    name: "Doctor",
-                    specialty: "Doctor",
-                    email: "N/A",
-                    phone: "N/A",
-                    clinicName: "N/A",
-                    experience: "N/A",
-                    qualification: "N/A",
-                    consultationFee: 0,
-                    address: "N/A",
-                    rating: 0,
-                    totalPatients: 0
-                });
-            }
-        } finally {
-            setLoading(false);
-        }
+    // Dummy data
+    const doctorData = {
+        name: "Dr. Emily Chen",
+        specialty: "Cardiologist",
+        email: "emily.chen@mediconnect.com",
+        phone: "+1 (555) 456-7890",
+        license: "MD-12345-CA",
+        experience: "12 years",
+        rating: 4.8,
+        totalPatients: 342
     };
 
     const todaySchedule = [
@@ -274,7 +194,7 @@ const DoctorDashboard = () => {
                                 }}>
                                     <i className="fas fa-users" style={{ fontSize: '1.5rem' }}></i>
                                 </div>
-                                <h3 className="mb-1 fw-bold">{doctorData?.totalPatients || 0}</h3>
+                                <h3 className="mb-1 fw-bold">{doctorData.totalPatients}</h3>
                                 <p className="mb-0 small opacity-75">Total Patients</p>
                             </div>
                         </div>
@@ -328,7 +248,7 @@ const DoctorDashboard = () => {
                                 }}>
                                     <i className="fas fa-star" style={{ fontSize: '1.5rem' }}></i>
                                 </div>
-                                <h3 className="mb-1 fw-bold">{doctorData?.rating || 0}</h3>
+                                <h3 className="mb-1 fw-bold">{doctorData.rating}</h3>
                                 <p className="mb-0 small opacity-75">Average Rating</p>
                             </div>
                         </div>
@@ -1116,8 +1036,84 @@ const DoctorDashboard = () => {
                     <LogOut />
                 </div>
             </div>
-            <div className="col-12">
-                <DoctorProfile />
+
+            <div className="col-12 col-lg-4">
+                <div className="card text-center">
+                    <div className="card-body">
+                        <img
+                            src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop&crop=face"
+                            alt="Profile"
+                            className="rounded-circle mb-3"
+                            style={{ width: '120px', height: '120px', objectFit: 'cover' }}
+                        />
+                        <h5>{doctorData.name}</h5>
+                        <p className="text-muted">{doctorData.specialty}</p>
+                        <p className="text-muted small">License: {doctorData.license}</p>
+                        <div className="d-flex justify-content-center align-items-center mb-3">
+                            <div className="me-3">
+                                <span className="text-warning">
+                                    {'★'.repeat(Math.floor(doctorData.rating))}
+                                    {'☆'.repeat(5 - Math.floor(doctorData.rating))}
+                                </span>
+                                <span className="ms-1">{doctorData.rating}</span>
+                            </div>
+                        </div>
+                        <button className="btn btn-outline-primary">
+                            <i className="fas fa-camera me-2"></i>Change Photo
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="col-12 col-lg-8">
+                <div className="card">
+                    <div className="card-header">
+                        <h5 className="mb-0">Professional Information</h5>
+                    </div>
+                    <div className="card-body">
+                        <div>
+                            <div className="row g-3">
+                                <div className="col-12 col-md-6">
+                                    <label className="form-label">Full Name</label>
+                                    <input type="text" className="form-control" defaultValue={doctorData.name} />
+                                </div>
+                                <div className="col-12 col-md-6">
+                                    <label className="form-label">Specialty</label>
+                                    <input type="text" className="form-control" defaultValue={doctorData.specialty} />
+                                </div>
+                                <div className="col-12 col-md-6">
+                                    <label className="form-label">Email</label>
+                                    <input type="email" className="form-control" defaultValue={doctorData.email} />
+                                </div>
+                                <div className="col-12 col-md-6">
+                                    <label className="form-label">Phone</label>
+                                    <input type="tel" className="form-control" defaultValue={doctorData.phone} />
+                                </div>
+                                <div className="col-12 col-md-6">
+                                    <label className="form-label">Medical License</label>
+                                    <input type="text" className="form-control" defaultValue={doctorData.license} />
+                                </div>
+                                <div className="col-12 col-md-6">
+                                    <label className="form-label">Years of Experience</label>
+                                    <input type="text" className="form-control" defaultValue={doctorData.experience} />
+                                </div>
+                                <div className="col-12">
+                                    <label className="form-label">Bio</label>
+                                    <textarea className="form-control" rows="4" placeholder="Write a brief professional bio..."></textarea>
+                                </div>
+                                <div className="col-12">
+                                    <label className="form-label">Specializations</label>
+                                    <textarea className="form-control" rows="3" placeholder="List your medical specializations and areas of expertise..."></textarea>
+                                </div>
+                                <div className="col-12">
+                                    <button type="button" className="btn btn-primary">
+                                        <i className="fas fa-save me-2"></i>Save Changes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -1134,22 +1130,6 @@ const DoctorDashboard = () => {
             default: return renderOverview();
         }
     };
-
-    if (loading) {
-        return (
-            <div className="min-vh-100 d-flex justify-content-center align-items-center" style={{ 
-                background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-                minHeight: '100vh'
-            }}>
-                <div className="text-center">
-                    <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Loading...</span>
-                    </div>
-                    <p className="mt-3 text-muted">Loading your dashboard...</p>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="min-vh-100" style={{ 
@@ -1216,11 +1196,8 @@ const DoctorDashboard = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <h1 className="h3 mb-1 fw-bold text-white">Welcome, {doctorData?.name || 'Doctor'}!</h1>
-                                    <p className="text-white-50 mb-0 small">
-                                        {doctorData?.clinicName !== 'N/A' ? `${doctorData?.clinicName} • ` : ''}
-                                        {doctorData?.specialty || 'Doctor'}
-                                    </p>
+                                    <h1 className="h3 mb-1 fw-bold text-white">Welcome, {doctorData.name}!</h1>
+                                    <p className="text-white-50 mb-0 small">Manage your patients and appointments efficiently</p>
                                 </div>
                             </div>
                         </div>
