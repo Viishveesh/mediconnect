@@ -1,8 +1,22 @@
 import React, { useState } from 'react';
 import LogOut from '../auth/LogOut.jsx';
+import { useMessages } from '../../hooks/useMessages';
+import { messageService } from '../../services/messageService';
 
 const DoctorDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
+    const {
+        conversations,
+        activeConversation,
+        messages,
+        loading,
+        error,
+        sendMessage,
+        selectConversation,
+        getUnreadCount,
+        clearError
+    } = useMessages();
+    const [newMessage, setNewMessage] = useState('');
 
     // Dummy data
     const doctorData = {
@@ -113,32 +127,16 @@ const DoctorDashboard = () => {
         }
     ];
 
-    const messages = [
-        {
-            id: 1,
-            patient: "Sarah Johnson",
-            lastMessage: "Thank you for the consultation. Should I continue the medication?",
-            time: "1 hour ago",
-            unread: true,
-            avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=50&h=50&fit=crop&crop=face"
-        },
-        {
-            id: 2,
-            patient: "Michael Smith",
-            lastMessage: "I'm experiencing some side effects from the new medication.",
-            time: "3 hours ago",
-            unread: true,
-            avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=50&h=50&fit=crop&crop=face"
-        },
-        {
-            id: 3,
-            patient: "Lisa Davis",
-            lastMessage: "My blood pressure readings for this week are attached.",
-            time: "1 day ago",
-            unread: false,
-            avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=50&h=50&fit=crop&crop=face"
+    // Handle message sending
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!newMessage.trim() || !activeConversation) return;
+        
+        const success = await sendMessage(activeConversation.conversation_id, newMessage);
+        if (success) {
+            setNewMessage('');
         }
-    ];
+    };
 
     const renderOverview = () => (
         <div className="row g-3 g-md-4">
@@ -221,7 +219,7 @@ const DoctorDashboard = () => {
                                 }}>
                                     <i className="fas fa-comments" style={{ fontSize: '1.5rem' }}></i>
                                 </div>
-                                <h3 className="mb-1 fw-bold">{messages.filter(m => m.unread).length}</h3>
+                                <h3 className="mb-1 fw-bold">{getUnreadCount()}</h3>
                                 <p className="mb-0 small opacity-75">New Messages</p>
                             </div>
                         </div>
@@ -428,44 +426,64 @@ const DoctorDashboard = () => {
                                 <h6 className="mb-0 fw-bold text-dark">Recent Messages</h6>
                             </div>
                             <div className="card-body p-3">
-                                {messages.slice(0, 3).map(message => (
-                                    <div key={message.id} className={`d-flex align-items-start message-item p-3 rounded mb-2 ${message.unread ? '' : ''}`} style={{
-                                        background: message.unread ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)' : 'transparent',
-                                        borderRadius: '12px',
-                                        border: message.unread ? '1px solid rgba(102, 126, 234, 0.1)' : '1px solid transparent'
-                                    }}>
-                                        <img
-                                            src={message.avatar}
-                                            alt={message.patient}
-                                            className="rounded-circle me-3 flex-shrink-0"
-                                            style={{ 
-                                                width: '35px', 
-                                                height: '35px', 
-                                                objectFit: 'cover',
-                                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                            }}
-                                        />
-                                        <div className="flex-grow-1 min-w-0">
-                                            <h6 className="mb-1 fs-6 fw-semibold">{message.patient}</h6>
-                                            <p className="mb-1 small text-muted text-truncate">{message.lastMessage}</p>
-                                            <small className="text-muted">{message.time}</small>
-                                        </div>
-                                        {message.unread && (
-                                            <span className="flex-shrink-0" style={{
-                                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                width: '8px',
-                                                height: '8px',
-                                                borderRadius: '50%'
-                                            }}></span>
-                                        )}
+                                {loading ? (
+                                    <div className="text-center py-3">
+                                        <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                        <p className="small text-muted mt-2">Loading messages...</p>
                                     </div>
-                                ))}
-                                <button className="btn btn-sm w-100 mt-3 fw-semibold" style={{
-                                    background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
-                                    border: '1px solid rgba(102, 126, 234, 0.3)',
-                                    borderRadius: '10px',
-                                    color: '#667eea'
-                                }}>View All</button>
+                                ) : conversations.length === 0 ? (
+                                    <div className="text-center py-3">
+                                        <p className="text-muted">No conversations yet</p>
+                                    </div>
+                                ) : (
+                                    conversations.slice(0, 3).map(conversation => (
+                                        <div key={conversation.id} className={`d-flex align-items-start message-item p-3 rounded mb-2`} style={{
+                                            background: conversation.unread_count > 0 ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)' : 'transparent',
+                                            borderRadius: '12px',
+                                            border: conversation.unread_count > 0 ? '1px solid rgba(102, 126, 234, 0.1)' : '1px solid transparent',
+                                            cursor: 'pointer'
+                                        }}
+                                        onClick={() => {
+                                            selectConversation(conversation);
+                                            setActiveTab('messages');
+                                        }}>
+                                            <div className="rounded-circle me-3 flex-shrink-0 d-flex align-items-center justify-content-center" style={{
+                                                width: '35px',
+                                                height: '35px',
+                                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                color: 'white'
+                                            }}>
+                                                <i className="fas fa-user"></i>
+                                            </div>
+                                            <div className="flex-grow-1 min-w-0">
+                                                <h6 className="mb-1 fs-6 fw-semibold">{conversation.other_user_name}</h6>
+                                                <p className="mb-1 small text-muted text-truncate">
+                                                    {conversation.last_message || 'Start a conversation'}
+                                                </p>
+                                                <small className="text-muted">
+                                                    {messageService.formatTime(conversation.last_message_time)}
+                                                </small>
+                                            </div>
+                                            {conversation.unread_count > 0 && (
+                                                <span className="flex-shrink-0" style={{
+                                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                    width: '8px',
+                                                    height: '8px',
+                                                    borderRadius: '50%'
+                                                }}></span>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                                <button 
+                                    className="btn btn-sm w-100 mt-3 fw-semibold" 
+                                    onClick={() => setActiveTab('messages')}
+                                    style={{
+                                        background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+                                        border: '1px solid rgba(102, 126, 234, 0.3)',
+                                        borderRadius: '10px',
+                                        color: '#667eea'
+                                    }}>View All</button>
                             </div>
                         </div>
                     </div>
@@ -845,88 +863,181 @@ const DoctorDashboard = () => {
         <div className="row g-3 g-md-4">
             <div className="col-12">
                 <h4>Patient Messages</h4>
+                {error && (
+                    <div className="alert alert-danger alert-dismissible fade show" role="alert">
+                        {error}
+                        <button type="button" className="btn-close" onClick={() => clearError()}></button>
+                    </div>
+                )}
             </div>
 
             <div className="col-12 col-lg-4">
-                <div className="card">
-                    <div className="card-header">
-                        <h5 className="mb-0">Conversations</h5>
+                <div className="card h-100" style={{
+                    border: 'none',
+                    borderRadius: '20px',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+                }}>
+                    <div className="card-header" style={{
+                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                        borderRadius: '20px 20px 0 0',
+                        border: 'none',
+                        padding: '1.5rem'
+                    }}>
+                        <h5 className="mb-0 fw-bold text-dark">Conversations</h5>
                     </div>
                     <div className="card-body p-0">
-                        {messages.map(message => (
-                            <div key={message.id} className={`d-flex align-items-center p-3 border-bottom ${message.unread ? 'bg-light' : ''}`} style={{ cursor: 'pointer' }}>
-                                <img
-                                    src={message.avatar}
-                                    alt={message.patient}
-                                    className="rounded-circle me-3 flex-shrink-0"
-                                    style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-                                />
-                                <div className="flex-grow-1 min-w-0">
-                                    <h6 className="mb-1">{message.patient}</h6>
-                                    <p className="mb-0 small text-muted text-truncate">{message.lastMessage}</p>
-                                    <small className="text-muted">{message.time}</small>
-                                </div>
-                                {message.unread && <span className="badge bg-primary rounded-pill flex-shrink-0">!</span>}
+                        {loading ? (
+                            <div className="text-center py-4">
+                                <div className="spinner-border" role="status"></div>
+                                <p className="text-muted mt-2">Loading conversations...</p>
                             </div>
-                        ))}
+                        ) : conversations.length === 0 ? (
+                            <div className="text-center py-4">
+                                <i className="fas fa-comments fa-3x text-muted mb-3"></i>
+                                <p className="text-muted">No conversations yet</p>
+                                <small className="text-muted">Messages with patients will appear here</small>
+                            </div>
+                        ) : (
+                            conversations.map(conversation => (
+                                <div 
+                                    key={conversation.id} 
+                                    className={`d-flex align-items-center p-3 border-bottom ${activeConversation?.id === conversation.id ? 'bg-primary-subtle' : ''}`} 
+                                    style={{ 
+                                        cursor: 'pointer',
+                                        background: conversation.unread_count > 0 && activeConversation?.id !== conversation.id ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)' : undefined
+                                    }}
+                                    onClick={() => selectConversation(conversation)}
+                                >
+                                    <div className="rounded-circle me-3 flex-shrink-0 d-flex align-items-center justify-content-center" style={{
+                                        width: '50px',
+                                        height: '50px',
+                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                        color: 'white'
+                                    }}>
+                                        <i className="fas fa-user"></i>
+                                    </div>
+                                    <div className="flex-grow-1 min-w-0">
+                                        <h6 className="mb-1 fw-semibold">{conversation.other_user_name}</h6>
+                                        <p className="mb-0 small text-muted text-truncate">
+                                            {conversation.last_message || 'Start a conversation'}
+                                        </p>
+                                        <small className="text-muted">
+                                            {messageService.formatTime(conversation.last_message_time)}
+                                        </small>
+                                    </div>
+                                    {conversation.unread_count > 0 && (
+                                        <span className="badge bg-primary rounded-pill">{conversation.unread_count}</span>
+                                    )}
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
             </div>
 
             <div className="col-12 col-lg-8">
-                <div className="card h-100">
-                    <div className="card-header d-flex align-items-center">
-                        <img
-                            src={messages[0].avatar}
-                            alt={messages[0].patient}
-                            className="rounded-circle me-3 flex-shrink-0"
-                            style={{ width: '40px', height: '40px', objectFit: 'cover' }}
-                        />
-                        <div>
-                            <h6 className="mb-0">{messages[0].patient}</h6>
-                            <small className="text-muted">Last seen: 1 hour ago</small>
-                        </div>
-                    </div>
-                    <div className="card-body" style={{ height: '300px', overflowY: 'auto' }}>
-                        <div className="d-flex mb-3">
-                            <img
-                                src={messages[0].avatar}
-                                alt={messages[0].patient}
-                                className="rounded-circle me-2 flex-shrink-0"
-                                style={{ width: '30px', height: '30px', objectFit: 'cover' }}
-                            />
-                            <div className="bg-light p-2 rounded">
-                                <p className="mb-0 small">Hello Dr. Chen, I hope you're doing well.</p>
-                                <small className="text-muted">2:30 PM</small>
+                <div className="card h-100" style={{
+                    border: 'none',
+                    borderRadius: '20px',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+                }}>
+                    {activeConversation ? (
+                        <>
+                            <div className="card-header d-flex align-items-center" style={{
+                                background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                                borderRadius: '20px 20px 0 0',
+                                border: 'none',
+                                padding: '1.5rem'
+                            }}>
+                                <div className="rounded-circle me-3 flex-shrink-0 d-flex align-items-center justify-content-center" style={{
+                                    width: '40px',
+                                    height: '40px',
+                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    color: 'white'
+                                }}>
+                                    <i className="fas fa-user"></i>
+                                </div>
+                                <div>
+                                    <h6 className="mb-0 fw-bold text-dark">{activeConversation.other_user_name}</h6>
+                                    <small className="text-success">{activeConversation.other_user_role}</small>
+                                </div>
+                            </div>
+                            <div className="card-body" style={{ height: '400px', overflowY: 'auto' }}>
+                                {loading ? (
+                                    <div className="text-center py-4">
+                                        <div className="spinner-border" role="status"></div>
+                                        <p className="text-muted mt-2">Loading messages...</p>
+                                    </div>
+                                ) : messages.length === 0 ? (
+                                    <div className="text-center py-4">
+                                        <i className="fas fa-comment fa-3x text-muted mb-3"></i>
+                                        <p className="text-muted">No messages yet</p>
+                                        <small className="text-muted">Start the conversation by sending a message</small>
+                                    </div>
+                                ) : (
+                                    messages.map(message => {
+                                        const isCurrentUser = message.sender_email === localStorage.getItem('userEmail') || message.sender_role === 'doctor';
+                                        return (
+                                            <div key={message.id} className={`d-flex mb-3 ${isCurrentUser ? 'justify-content-end' : ''}`}>
+                                                {!isCurrentUser && (
+                                                    <div className="rounded-circle me-2 flex-shrink-0 d-flex align-items-center justify-content-center" style={{
+                                                        width: '30px',
+                                                        height: '30px',
+                                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                        color: 'white',
+                                                        fontSize: '0.8rem'
+                                                    }}>
+                                                        <i className="fas fa-user"></i>
+                                                    </div>
+                                                )}
+                                                <div className={`p-2 rounded ${isCurrentUser ? 'text-white' : 'bg-light'}`} style={{
+                                                    background: isCurrentUser ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : undefined,
+                                                    maxWidth: '70%'
+                                                }}>
+                                                    <p className="mb-0 small">{message.message}</p>
+                                                    <small className={isCurrentUser ? 'text-white-50' : 'text-muted'}>
+                                                        {messageService.formatMessageTime(message.timestamp)}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                            <div className="card-footer" style={{ background: 'white', borderRadius: '0 0 20px 20px' }}>
+                                <form onSubmit={handleSendMessage}>
+                                    <div className="input-group">
+                                        <input 
+                                            type="text" 
+                                            className="form-control" 
+                                            placeholder="Type your response..." 
+                                            value={newMessage}
+                                            onChange={(e) => setNewMessage(e.target.value)}
+                                        />
+                                        <button 
+                                            type="submit"
+                                            className="btn text-white" 
+                                            disabled={!newMessage.trim() || loading}
+                                            style={{
+                                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                border: 'none'
+                                            }}
+                                        >
+                                            <i className="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="card-body d-flex align-items-center justify-content-center" style={{ height: '500px' }}>
+                            <div className="text-center">
+                                <i className="fas fa-comments fa-4x text-muted mb-3"></i>
+                                <h5 className="text-muted">Select a conversation</h5>
+                                <p className="text-muted">Choose a conversation from the left to start messaging</p>
                             </div>
                         </div>
-                        <div className="d-flex justify-content-end mb-3">
-                            <div className="bg-primary text-white p-2 rounded">
-                                <p className="mb-0 small">Hello Sarah! How are you feeling today?</p>
-                                <small className="text-white-50">2:32 PM</small>
-                            </div>
-                        </div>
-                        <div className="d-flex mb-3">
-                            <img
-                                src={messages[0].avatar}
-                                alt={messages[0].patient}
-                                className="rounded-circle me-2 flex-shrink-0"
-                                style={{ width: '30px', height: '30px', objectFit: 'cover' }}
-                            />
-                            <div className="bg-light p-2 rounded">
-                                <p className="mb-0 small">{messages[0].lastMessage}</p>
-                                <small className="text-muted">1 hour ago</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="card-footer">
-                        <div className="input-group">
-                            <input type="text" className="form-control" placeholder="Type your response..." />
-                            <button className="btn btn-primary">
-                                <i className="fas fa-paper-plane"></i>
-                            </button>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -1239,7 +1350,7 @@ const DoctorDashboard = () => {
                             { id: 'appointments', icon: 'fa-calendar-check', label: 'Appointments', color: '#f093fb' },
                             { id: 'patients', icon: 'fa-users', label: 'Patients', color: '#4facfe' },
                             { id: 'schedule', icon: 'fa-calendar-alt', label: 'Schedule', color: '#43e97b' },
-                            { id: 'messages', icon: 'fa-comments', label: 'Messages', badge: messages.filter(m => m.unread).length, color: '#fa709a' },
+                            { id: 'messages', icon: 'fa-comments', label: 'Messages', badge: getUnreadCount(), color: '#fa709a' },
                             { id: 'analytics', icon: 'fa-chart-line', label: 'Analytics', color: '#fee140' },
                             { id: 'profile', icon: 'fa-user-md', label: 'Profile', color: '#a8edea' }
                         ].map(tab => (
@@ -1278,18 +1389,29 @@ const DoctorDashboard = () => {
                                 <i className={`fas ${tab.icon} me-2`} style={{ fontSize: '1.1rem' }}></i>
                                 <span className="d-none d-md-inline">{tab.label}</span>
                                 <span className="d-md-none">{tab.label.slice(0, 3)}</span>
-                                {tab.badge && tab.badge > 0 && (
+                                {tab.badge && tab.badge > 0 ? (
                                     <span 
-                                        className="position-absolute top-0 start-100 translate-middle badge rounded-pill"
+                                        className="position-absolute badge rounded-pill text-white"
                                         style={{
                                             background: 'linear-gradient(135deg, #ff6b6b, #ee5a52)',
-                                            fontSize: '0.7rem',
-                                            padding: '4px 8px'
+                                            fontSize: '0.75rem',
+                                            padding: '4px 8px',
+                                            top: '4px',
+                                            right: '4px',
+                                            minWidth: '18px',
+                                            height: '18px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontWeight: 'bold',
+                                            border: '2px solid white',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                            zIndex: 10
                                         }}
                                     >
                                         {tab.badge}
                                     </span>
-                                )}
+                                ) : null}
                             </button>
                         ))}
                     </div>
