@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import LogOut from '../auth/LogOut.jsx';
 import { useNavigate } from 'react-router-dom';
+import PatientProfile from './PatientProfile.jsx';
 
 
 const PatientDashboard = () => {
@@ -923,110 +924,8 @@ const PatientDashboard = () => {
                     <LogOut />
                 </div>
             </div>
-
-            <div className="col-12 col-lg-4">
-                <div className="card text-center h-100" style={{
-                    border: 'none',
-                    borderRadius: '20px',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-                }}>
-                    <div className="card-body p-4">
-                        <img
-                            src="https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face"
-                            alt="Profile"
-                            className="rounded-circle mb-3"
-                            style={{ 
-                                width: '120px', 
-                                height: '120px', 
-                                objectFit: 'cover',
-                                boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-                            }}
-                        />
-                        <h5 className="fw-bold">{patientData.name}</h5>
-                        <p className="text-muted">Patient ID: #P12345</p>
-                        <button className="btn fw-semibold" style={{
-                            background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
-                            border: '1px solid rgba(102, 126, 234, 0.3)',
-                            borderRadius: '12px',
-                            color: '#667eea'
-                        }}>
-                            <i className="fas fa-camera me-2"></i>Change Photo
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div className="col-12 col-lg-8">
-                <div className="card h-100" style={{
-                    border: 'none',
-                    borderRadius: '20px',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-                }}>
-                    <div className="card-header" style={{
-                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                        borderRadius: '20px 20px 0 0',
-                        border: 'none',
-                        padding: '1.5rem'
-                    }}>
-                        <h5 className="mb-0 fw-bold text-dark">Personal Information</h5>
-                    </div>
-                    <div className="card-body p-4">
-                        <div className="row g-3">
-                            <div className="col-12 col-md-6">
-                                <label className="form-label fw-semibold">Full Name</label>
-                                <input type="text" className="form-control" defaultValue={patientData.name} style={{ borderRadius: '10px' }} />
-                            </div>
-                            <div className="col-12 col-md-6">
-                                <label className="form-label fw-semibold">Email</label>
-                                <input type="email" className="form-control" defaultValue={patientData.email} style={{ borderRadius: '10px' }} />
-                            </div>
-                            <div className="col-12 col-md-6">
-                                <label className="form-label fw-semibold">Phone</label>
-                                <input type="tel" className="form-control" defaultValue={patientData.phone} style={{ borderRadius: '10px' }} />
-                            </div>
-                            <div className="col-12 col-md-6">
-                                <label className="form-label fw-semibold">Date of Birth</label>
-                                <input type="date" className="form-control" defaultValue={patientData.dateOfBirth} style={{ borderRadius: '10px' }} />
-                            </div>
-                            <div className="col-12 col-md-6">
-                                <label className="form-label fw-semibold">Blood Type</label>
-                                <select className="form-select" style={{ borderRadius: '10px' }}>
-                                    <option value="O+">O+</option>
-                                    <option value="O-">O-</option>
-                                    <option value="A+">A+</option>
-                                    <option value="A-">A-</option>
-                                    <option value="B+">B+</option>
-                                    <option value="B-">B-</option>
-                                    <option value="AB+">AB+</option>
-                                    <option value="AB-">AB-</option>
-                                </select>
-                            </div>
-                            <div className="col-12 col-md-6">
-                                <label className="form-label fw-semibold">Emergency Contact</label>
-                                <input type="text" className="form-control" defaultValue={patientData.emergencyContact} style={{ borderRadius: '10px' }} />
-                            </div>
-                            <div className="col-12">
-                                <label className="form-label fw-semibold">Medical Conditions</label>
-                                <textarea 
-                                    className="form-control" 
-                                    rows="3" 
-                                    placeholder="List any current medical conditions, allergies, or medications..."
-                                    style={{ borderRadius: '10px' }}
-                                ></textarea>
-                            </div>
-                            <div className="col-12">
-                                <button type="button" className="btn text-white fw-semibold" style={{
-                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                    border: 'none',
-                                    borderRadius: '12px',
-                                    padding: '12px 20px'
-                                }}>
-                                    <i className="fas fa-save me-2"></i>Save Changes
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div className="col-12">
+                <PatientProfile />
             </div>
         </div>
     );
