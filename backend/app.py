@@ -344,6 +344,7 @@ def get_conversations(current_user):
                 "other_user_role": other_user.get('role'),
                 "last_message": conv.get('last_message', ''),
                 "last_message_time": conv.get('last_message_time'),
+                "last_message_sender_email": conv.get('last_message_sender_email', ''),
                 "unread_count": conv.get(f'unread_count_{user_role}', 0)
             })
     
@@ -459,7 +460,8 @@ def send_message(current_user, conversation_id):
             {
                 "$set": {
                     "last_message": last_message,
-                    "last_message_time": datetime.utcnow()
+                    "last_message_time": datetime.utcnow(),
+                    "last_message_sender_email": user_email
                 },
                 "$inc": {f"unread_count_{other_role}": 1}
             }
