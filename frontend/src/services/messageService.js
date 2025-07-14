@@ -1,5 +1,3 @@
-import { cryptoService } from './cryptoService';
-
 const API_BASE_URL = 'http://localhost:5000/api';
 
 const getAuthHeaders = () => {
@@ -43,26 +41,6 @@ export const messageService = {
       }
       
       const data = await response.json();
-      
-      // Decrypt messages if they're encrypted
-      if (data.messages && otherUserEmail) {
-        for (let message of data.messages) {
-          if (message.encrypted && message.message) {
-            try {
-              const decrypted = await cryptoService.decryptConversationMessage(
-                conversationId, 
-                message.message, 
-                otherUserEmail
-              );
-              message.message = decrypted;
-            } catch (decryptError) {
-              console.error('Failed to decrypt message:', decryptError);
-              message.message = '[Decryption failed]';
-            }
-          }
-        }
-      }
-      
       return data;
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -71,48 +49,72 @@ export const messageService = {
   },
 
   // Send a message
-  sendMessage: async (conversationId, message, otherUserEmail) => {
+  sendMessage: async (conversationId, message, otherUserEmail, imageAttachment = null) => {
     try {
-      let messageToSend = message;
+      console.log('Sending message:', { conversationId, message, imageAttachment });
       
-      // Encrypt message if we have the other user's keys
-      if (otherUserEmail) {
-        try {
-          const encryptedMessage = await cryptoService.encryptConversationMessage(
-            conversationId, 
-            message, 
-            otherUserEmail
-          );
-          messageToSend = encryptedMessage;
-        } catch (encryptError) {
-          console.error('Failed to encrypt message:', encryptError);
-          // Fall back to unencrypted message
-        }
+      const payload = { message: message };
+      if (imageAttachment) {
+        payload.file_attachment = imageAttachment;
       }
       
       const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/send`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ message: messageToSend })
+        body: JSON.stringify(payload)
       });
       
+      console.log('API response status:', response.status, response.statusText);
+      
       if (!response.ok) {
-        throw new Error('Failed to send message');
+        const errorData = await response.text();
+        console.error('API error response:', errorData);
+        throw new Error(`Failed to send message: ${response.status} ${errorData}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+      console.log('Message sent successfully:', result);
+      return result;
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
     }
   },
 
+  // Upload image
+  uploadImage: async (imageFile) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', imageFile);
+
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Failed to upload image: ${response.status} ${errorData}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    }
+  },
+
+  // Get image URL
+  getImageUrl: (fileId) => {
+    return `${API_BASE_URL}/files/${fileId}`;
+  },
+
   // Start a new conversation
   startConversation: async (otherUserEmail) => {
     try {
-      // Initialize encryption and exchange keys
-      await messageService.initializeEncryption(otherUserEmail);
-      
       const response = await fetch(`${API_BASE_URL}/conversations/start`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -130,39 +132,6 @@ export const messageService = {
     }
   },
 
-  // Initialize encryption for a conversation
-  initializeEncryption: async (otherUserEmail) => {
-    try {
-      // Initialize user's keys
-      await cryptoService.initializeUserKeys();
-      
-      // Store public keys on server
-      const currentUserId = localStorage.getItem('userEmail');
-      const publicKeys = cryptoService.getPublicKeys(currentUserId);
-      
-      if (publicKeys) {
-        await fetch(`${API_BASE_URL}/public-keys`, {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ public_keys: publicKeys })
-        });
-      }
-      
-      // Get other user's public keys
-      const response = await fetch(`${API_BASE_URL}/public-keys/${otherUserEmail}`, {
-        method: 'GET',
-        headers: getAuthHeaders()
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        cryptoService.storeOtherUserPublicKeys(otherUserEmail, data.public_keys);
-      }
-    } catch (error) {
-      console.error('Error initializing encryption:', error);
-      throw error;
-    }
-  },
 
   // Format timestamp for display
   formatTime: (timestamp) => {

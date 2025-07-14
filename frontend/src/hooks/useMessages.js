@@ -44,11 +44,11 @@ export const useMessages = () => {
   }, []);
 
   // Send a message
-  const sendMessage = useCallback(async (conversationId, messageText, otherUserEmail) => {
-    if (!conversationId || !messageText.trim()) return;
+  const sendMessage = useCallback(async (conversationId, messageText, otherUserEmail, imageAttachment = null) => {
+    if (!conversationId || (!messageText.trim() && !imageAttachment)) return;
 
     try {
-      await messageService.sendMessage(conversationId, messageText.trim(), otherUserEmail);
+      await messageService.sendMessage(conversationId, messageText.trim(), otherUserEmail, imageAttachment);
       
       // Reload messages and conversations to get updated data
       await Promise.all([
@@ -63,6 +63,18 @@ export const useMessages = () => {
       return false;
     }
   }, [loadMessages, loadConversations]);
+
+  // Upload image
+  const uploadImage = useCallback(async (imageFile) => {
+    try {
+      const result = await messageService.uploadImage(imageFile);
+      return result;
+    } catch (err) {
+      setError('Failed to upload image');
+      console.error('Error uploading image:', err);
+      return null;
+    }
+  }, []);
 
   // Start a new conversation
   const startConversation = useCallback(async (otherUserEmail) => {
@@ -106,6 +118,7 @@ export const useMessages = () => {
     loadConversations,
     loadMessages,
     sendMessage,
+    uploadImage,
     startConversation,
     selectConversation,
     getUnreadCount,
