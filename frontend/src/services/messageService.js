@@ -1,3 +1,5 @@
+import encryptionManager from '../utils/encryption';
+
 const API_BASE_URL = 'http://localhost:5000/api';
 
 const getAuthHeaders = () => {
@@ -41,6 +43,29 @@ export const messageService = {
       }
       
       const data = await response.json();
+      
+      // Decrypt messages on the client side
+      if (data.messages && Array.isArray(data.messages)) {
+        for (let message of data.messages) {
+          if (message.message && encryptionManager.isEncryptionSupported()) {
+            const originalMessage = message.message;
+            console.log('🔍 Attempting to decrypt message:', originalMessage.substring(0, 50) + '...');
+            console.log('🆔 Using conversation ID for decryption:', conversationId);
+            
+            try {
+              // Attempt to decrypt the message
+              const decryptedMessage = await encryptionManager.decryptMessage(conversationId, message.message);
+              message.message = decryptedMessage;
+              console.log('✅ Decrypted successfully:', decryptedMessage);
+            } catch (error) {
+              console.warn('Failed to decrypt message:', error);
+              // Keep the original message if decryption fails (could be legacy plain text)
+              console.log('⚠️ Keeping original message:', originalMessage);
+            }
+          }
+        }
+      }
+      
       return data;
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -51,9 +76,27 @@ export const messageService = {
   // Send a message
   sendMessage: async (conversationId, message, otherUserEmail, imageAttachment = null) => {
     try {
-      console.log('Sending message:', { conversationId, message, imageAttachment });
+      console.log('Sending message:', { conversationId, message: '[ENCRYPTED]', imageAttachment });
+      console.log('🆔 Using conversation ID for encryption:', conversationId);
       
-      const payload = { message: message };
+      // Encrypt the message before sending
+      let encryptedMessage = '';
+      if (message && message.trim()) {
+        if (encryptionManager.isEncryptionSupported()) {
+          encryptedMessage = await encryptionManager.encryptMessage(conversationId, message.trim());
+          console.log('Message encrypted successfully');
+          
+          // Debug: Log key info during encryption
+          const key = await encryptionManager.loadConversationKey(conversationId);
+          const keyData = await crypto.subtle.exportKey('jwk', key);
+          console.log('🔑 Encryption key fingerprint:', keyData.k?.substring(0, 10) + '...');
+        } else {
+          console.warn('Encryption not supported, sending plain text');
+          encryptedMessage = message.trim();
+        }
+      }
+      
+      const payload = { message: encryptedMessage };
       if (imageAttachment) {
         payload.file_attachment = imageAttachment;
       }
