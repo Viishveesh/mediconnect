@@ -506,9 +506,14 @@ const DoctorDashboard = () => {
                                             }}>
                                                 <i className="fas fa-user"></i>
                                             </div>
-                                            <div className="flex-grow-1 min-w-0">
+                                            <div className="flex-grow-1 min-w-0" style={{ width: '0', overflow: 'hidden' }}>
                                                 <h6 className="mb-1 fs-6 fw-semibold">{conversation.other_user_name}</h6>
-                                                <p className="mb-1 small text-muted text-truncate">
+                                                <p className="mb-1 small text-muted" style={{
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    width: '100%'
+                                                }}>
                                                     {conversation.last_message || 'Start a conversation'}
                                                 </p>
                                                 <small className="text-muted">
@@ -967,9 +972,14 @@ const DoctorDashboard = () => {
                                     }}>
                                         <i className="fas fa-user"></i>
                                     </div>
-                                    <div className="flex-grow-1 min-w-0">
+                                    <div className="flex-grow-1 min-w-0" style={{ width: '0', overflow: 'hidden' }}>
                                         <h6 className="mb-1 fw-semibold">{conversation.other_user_name}</h6>
-                                        <p className="mb-0 small text-muted text-truncate">
+                                        <p className="mb-0 small text-muted" style={{
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            width: '100%'
+                                        }}>
                                             {conversation.last_message || 'Start a conversation'}
                                         </p>
                                         <small className="text-muted">

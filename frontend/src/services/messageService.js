@@ -23,7 +23,37 @@ export const messageService = {
         throw new Error('Failed to fetch conversations');
       }
       
-      return await response.json();
+      const data = await response.json();
+      
+      // Decrypt last messages and add "You: " prefix
+      if (data.conversations && Array.isArray(data.conversations)) {
+        const currentUserEmail = localStorage.getItem('email');
+        
+        for (let conversation of data.conversations) {
+          if (conversation.last_message) {
+            let messageToShow = conversation.last_message;
+            
+            // Try to decrypt if encryption is supported
+            if (encryptionManager.isEncryptionSupported()) {
+              try {
+                messageToShow = await encryptionManager.decryptMessage(conversation.id, conversation.last_message);
+              } catch (error) {
+                console.warn('Failed to decrypt conversation last message:', error);
+                // Keep original message if decryption fails
+              }
+            }
+            
+            // Add "You: " prefix if the current user sent the last message
+            if (conversation.last_message_sender_email === currentUserEmail) {
+              conversation.last_message = `You: ${messageToShow}`;
+            } else {
+              conversation.last_message = messageToShow;
+            }
+          }
+        }
+      }
+      
+      return data;
     } catch (error) {
       console.error('Error fetching conversations:', error);
       throw error;
