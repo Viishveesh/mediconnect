@@ -309,6 +309,7 @@
   border: none;
   margin-bottom: 16px;
   cursor: pointer;
+  margin-right: 20px;
 }
 
 .add-slot-btn:hover {
@@ -413,4 +414,21 @@
 .modal-save:hover{
   opacity: 0.85;
 }
+
+.google-sync-btn {
+  background-color: #4285f4;
+  color: white;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  margin-right: 20px;
+}
+
+.google-sync-btn:hover {
+  background-color: #3367d6;
+}
+
 

@@ -5,3 +5,7 @@ pymongo==3.11.4
 bcrypt==4.3.0
 python-dotenv==1.0.0
 pydantic
+google-auth 
+google-auth-oauthlib
+google-auth-httplib2
+python-dateutil

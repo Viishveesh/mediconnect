@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 import jwt
 import datetime
@@ -7,13 +7,17 @@ import bcrypt
 from dotenv import load_dotenv
 import os
 from routes.doctor_schedule import doctor_schedule
+from routes.google_calendar import google_calendar
 
 
 load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+secret_key = os.getenv('SECRET_KEY')
+app.config['SECRET_KEY'] = secret_key
+app.secret_key = secret_key
+
 
 MONGO_URI = os.getenv('MONGO_URI')
 client = MongoClient(MONGO_URI)
@@ -23,6 +27,7 @@ users_collection = db.users
 
 # Register custom blueprints
 app.register_blueprint(doctor_schedule)
+app.register_blueprint(google_calendar)
 
 # Signup route
 @app.route("/api/signup", methods=["POST"])

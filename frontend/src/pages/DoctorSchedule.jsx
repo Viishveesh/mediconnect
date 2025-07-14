@@ -9,6 +9,7 @@ import "../assets/css/styles.css";
 
 const DoctorSchedule = () => {
   const { doctorId } = useParams();
+  const jwtToken = localStorage.getItem("token");
   const [events, setEvents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [slotData, setSlotData] = useState({
@@ -129,11 +130,45 @@ const DoctorSchedule = () => {
   return (
     <div className="p-4">
       <h2 className="text-2xl font-semibold mb-2">Doctor Schedule</h2>
+      <div>
+        <button className="add-slot-btn" onClick={handleAddSlotClick}>
+          + Add Slot
+        </button>
 
-      <button className="add-slot-btn" onClick={handleAddSlotClick}>
-        + Add Slot
-      </button>
+        <button
+          className="google-sync-btn"
+          onClick={() => {
+            const token = localStorage.getItem("token");
+            window.location.href = `http://localhost:5000/google/login?token=${token}`;
+          }}
+        >
+          Connect Google Calendar
+        </button>
 
+        <button
+          className="google-sync-btn"
+          onClick={async () => {
+            try {
+              const res = await fetch(
+                "http://localhost:5000/google/sync-busy",
+                {
+                  headers: {
+                    Authorization: `Bearer ${jwtToken}`, // Make sure it's fresh
+                  },
+                }
+              );
+              const data = await res.json();
+              alert(data.message || "Sync complete");
+              fetchSchedule(); // reload calendar
+            } catch (err) {
+              console.error("Google sync failed", err);
+              alert("Google Calendar sync failed.");
+            }
+          }}
+        >
+          Sync Busy Slots
+        </button>
+      </div>
       <div
         style={{
           height: "500px",
