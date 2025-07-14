@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import LogOut from '../auth/LogOut.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useMessages } from '../../hooks/useMessages';
@@ -15,11 +15,14 @@ const PatientDashboard = () => {
         loading,
         error,
         sendMessage,
+        uploadImage,
         selectConversation,
         getUnreadCount,
         clearError
     } = useMessages();
     const [newMessage, setNewMessage] = useState('');
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [uploading, setUploading] = useState(false);
 
 
     // Dummy data
@@ -107,14 +110,67 @@ const PatientDashboard = () => {
         }
     ];
 
+    // Handle image selection
+    const handleImageSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            console.log('Selected image:', file.name, 'Type:', file.type, 'Size:', file.size);
+            
+            // Check image type
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
+            if (!allowedTypes.includes(file.type)) {
+                alert(`File type "${file.type}" not allowed. Only images (PNG, JPG, GIF) are allowed`);
+                return;
+            }
+            
+            // Check file size (16MB max)
+            if (file.size > 16 * 1024 * 1024) {
+                alert('Image size must be less than 16MB');
+                return;
+            }
+            
+            console.log('Image validation passed, setting selected image');
+            setSelectedImage(file);
+        }
+    };
+
     // Handle message sending
     const handleSendMessage = async (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || !activeConversation) return;
+        if ((!newMessage.trim() && !selectedImage) || !activeConversation) return;
         
-        const success = await sendMessage(activeConversation.conversation_id, newMessage);
-        if (success) {
-            setNewMessage('');
+        setUploading(true);
+        try {
+            let imageAttachment = null;
+            
+            // Upload image first if selected
+            if (selectedImage) {
+                console.log('Uploading image:', selectedImage.name, selectedImage.type);
+                const uploadResult = await uploadImage(selectedImage);
+                console.log('Upload result:', uploadResult);
+                if (uploadResult) {
+                    imageAttachment = uploadResult;
+                }
+            }
+            
+            const success = await sendMessage(
+                activeConversation.conversation_id, 
+                newMessage, 
+                activeConversation.other_user_email,
+                imageAttachment
+            );
+            
+            if (success) {
+                setNewMessage('');
+                setSelectedImage(null);
+                // Reset file input
+                const imageInput = document.getElementById('image-input');
+                if (imageInput) imageInput.value = '';
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -941,7 +997,37 @@ const PatientDashboard = () => {
                                                     background: isCurrentUser ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : undefined,
                                                     maxWidth: '70%'
                                                 }}>
-                                                    <p className="mb-0 small">{message.message}</p>
+                                                    {/* Text message */}
+                                                    {message.message && (
+                                                        <p className="mb-1 small">
+                                                            {typeof message.message === 'string' 
+                                                                ? message.message 
+                                                                : '[Invalid Message]'
+                                                            }
+                                                        </p>
+                                                    )}
+                                                    
+                                                    {/* Image attachment */}
+                                                    {message.image_attachment && (
+                                                        <div className="mb-1">
+                                                            <img 
+                                                                src={`http://localhost:5000/api/files/${message.image_attachment.file_id}`}
+                                                                alt={message.image_attachment.original_name}
+                                                                style={{ 
+                                                                    maxWidth: '200px', 
+                                                                    maxHeight: '200px', 
+                                                                    borderRadius: '8px',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                                onClick={() => window.open(`http://localhost:5000/api/files/${message.image_attachment.file_id}`, '_blank')}
+                                                            />
+                                                            <br />
+                                                            <small className={isCurrentUser ? 'text-white-50' : 'text-muted'}>
+                                                                {message.image_attachment.original_name}
+                                                            </small>
+                                                        </div>
+                                                    )}
+                                                    
                                                     <small className={isCurrentUser ? 'text-white-50' : 'text-muted'}>
                                                         {messageService.formatMessageTime(message.timestamp)}
                                                     </small>
@@ -953,6 +1039,23 @@ const PatientDashboard = () => {
                             </div>
                             <div className="card-footer" style={{ background: 'white', borderRadius: '0 0 20px 20px' }}>
                                 <form onSubmit={handleSendMessage}>
+                                    {selectedImage && (
+                                        <div className="mb-2 p-2 bg-light rounded">
+                                            <small className="text-muted">
+                                                🖼️ {selectedImage.name} ({(selectedImage.size / 1024 / 1024).toFixed(2)} MB)
+                                                <button 
+                                                    type="button" 
+                                                    className="btn btn-sm btn-link text-danger p-0 ms-2"
+                                                    onClick={() => {
+                                                        setSelectedImage(null);
+                                                        document.getElementById('image-input').value = '';
+                                                    }}
+                                                >
+                                                    ×
+                                                </button>
+                                            </small>
+                                        </div>
+                                    )}
                                     <div className="input-group">
                                         <input 
                                             type="text" 
@@ -960,19 +1063,39 @@ const PatientDashboard = () => {
                                             placeholder="Type your message..." 
                                             value={newMessage}
                                             onChange={(e) => setNewMessage(e.target.value)}
-                                            style={{ borderRadius: '10px 0 0 10px' }} 
+                                            style={{ borderRadius: '10px 0 0 0' }} 
                                         />
+                                        <input
+                                            type="file"
+                                            id="image-input"
+                                            accept=".png,.jpg,.jpeg,.gif"
+                                            onChange={handleImageSelect}
+                                            style={{ display: 'none' }}
+                                        />
+                                        <button 
+                                            type="button"
+                                            className="btn btn-outline-secondary"
+                                            onClick={() => document.getElementById('image-input').click()}
+                                            title="Attach image"
+                                            style={{ borderRadius: '0' }}
+                                        >
+                                            🖼️
+                                        </button>
                                         <button 
                                             type="submit"
                                             className="btn text-white" 
-                                            disabled={!newMessage.trim() || loading}
+                                            disabled={(!newMessage.trim() && !selectedImage) || loading || uploading}
                                             style={{
                                                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                                                 border: 'none',
                                                 borderRadius: '0 10px 10px 0'
                                             }}
                                         >
-                                            <i className="fas fa-paper-plane"></i>
+                                            {uploading ? (
+                                                <span className="spinner-border spinner-border-sm" role="status"></span>
+                                            ) : (
+                                                <i className="fas fa-paper-plane"></i>
+                                            )}
                                         </button>
                                     </div>
                                 </form>

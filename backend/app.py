@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import jwt
 from pymongo import MongoClient
@@ -12,12 +12,101 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 from datetime import datetime, timedelta
+import uuid
+from werkzeug.utils import secure_filename
+from PIL import Image
+import io
 
 load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Allowed image extensions only
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def compress_image(image_file, max_size_mb=2, quality=85, max_dimension=1920):
+    """
+    Compress image file to reduce size while maintaining reasonable quality
+    
+    Args:
+        image_file: File object from request.files
+        max_size_mb: Maximum file size in MB (default: 2MB)
+        quality: JPEG quality (1-95, default: 85)
+        max_dimension: Maximum width or height (default: 1920px)
+    
+    Returns:
+        Compressed image as BytesIO object, file extension
+    """
+    try:
+        # Open the image
+        image = Image.open(image_file)
+        
+        # Convert RGBA to RGB if necessary (for JPEG compatibility)
+        if image.mode in ('RGBA', 'LA', 'P'):
+            # Create a white background
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'P':
+                image = image.convert('RGBA')
+            background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+            image = background
+        elif image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        # Resize if image is too large
+        if max(image.size) > max_dimension:
+            # Calculate new size maintaining aspect ratio
+            ratio = max_dimension / max(image.size)
+            new_size = tuple(int(dim * ratio) for dim in image.size)
+            image = image.resize(new_size, Image.Resampling.LANCZOS)
+        
+        # Try different compression levels to achieve target size
+        for q in [quality, 75, 60, 45, 30]:
+            output = io.BytesIO()
+            
+            # Always save as JPEG for better compression
+            image.save(output, format='JPEG', quality=q, optimize=True)
+            output.seek(0)
+            
+            # Check if size is acceptable
+            size_mb = len(output.getvalue()) / (1024 * 1024)
+            
+            if size_mb <= max_size_mb:
+                output.seek(0)
+                return output, 'jpg'
+            
+            output.close()
+        
+        # If still too large, resize further
+        if max(image.size) > 1280:
+            ratio = 1280 / max(image.size)
+            new_size = tuple(int(dim * ratio) for dim in image.size)
+            image = image.resize(new_size, Image.Resampling.LANCZOS)
+            
+            output = io.BytesIO()
+            image.save(output, format='JPEG', quality=60, optimize=True)
+            output.seek(0)
+            return output, 'jpg'
+        
+        # Last resort - very aggressive compression
+        output = io.BytesIO()
+        image.save(output, format='JPEG', quality=30, optimize=True)
+        output.seek(0)
+        return output, 'jpg'
+        
+    except Exception as e:
+        print(f"Error compressing image: {e}")
+        # Return original file if compression fails
+        image_file.seek(0)
+        original_extension = image_file.filename.rsplit('.', 1)[1].lower()
+        return image_file, original_extension
 
 MONGO_URI = os.getenv('MONGO_URI')
 client = MongoClient(MONGO_URI)
@@ -26,7 +115,6 @@ users_collection = db.users
 appointments_collection = db.appointment
 messages_collection = db.messages
 conversations_collection = db.conversations
-public_keys_collection = db.public_keys
 
 @app.route("/api/signup", methods=["POST"])
 def signup():
@@ -283,10 +371,10 @@ def get_messages(current_user, conversation_id):
             sender = users_collection.find_one({"email": msg.get('sender_email')})
             sender_name = f"{sender.get('firstName', '')} {sender.get('lastName', '')}".strip() if sender else "Unknown"
             
-            # Return encrypted data instead of plain text message
-            message_data = msg.get('encrypted_data') if msg.get('encrypted', False) else msg.get('message', '')
+            # Return message text only (no encryption)
+            message_data = msg.get('message', '')
             
-            result.append({
+            message_item = {
                 "id": str(msg.get('_id')),
                 "sender_email": msg.get('sender_email'),
                 "sender_name": sender_name,
@@ -294,8 +382,14 @@ def get_messages(current_user, conversation_id):
                 "message": message_data,
                 "timestamp": msg.get('timestamp'),
                 "read": msg.get('read', False),
-                "encrypted": msg.get('encrypted', False)
-            })
+                "message_type": msg.get('message_type', 'text')
+            }
+            
+            # Add image attachment info if present
+            if msg.get('image_attachment'):
+                message_item["image_attachment"] = msg.get('image_attachment')
+            
+            result.append(message_item)
         
         # Mark messages as read for current user
         user_role = current_user.get('role')
@@ -316,14 +410,12 @@ def send_message(current_user, conversation_id):
     
     try:
         data = request.get_json()
-        encrypted_message = data.get('message')
+        message_text = data.get('message', '')
+        file_attachment = data.get('file_attachment')
         
-        if not encrypted_message:
+        # Must have either message text or image attachment
+        if not message_text and not file_attachment:
             return jsonify({"error": "Message cannot be empty"}), 400
-        
-        # Validate encrypted message format
-        if not isinstance(encrypted_message, dict) or 'encrypted' not in encrypted_message or 'iv' not in encrypted_message:
-            return jsonify({"error": "Invalid encrypted message format. Expected {encrypted: [...], iv: [...]}"}), 400
         
         conversation = conversations_collection.find_one({"_id": ObjectId(conversation_id)})
         if not conversation:
@@ -335,26 +427,37 @@ def send_message(current_user, conversation_id):
         if user_email not in [conversation.get('doctor_email'), conversation.get('patient_email')]:
             return jsonify({"error": "Unauthorized"}), 403
         
-        # Create message with encrypted data
+        # Create message with text and/or file attachment
         message_doc = {
             "conversation_id": ObjectId(conversation_id),
             "sender_email": user_email,
             "sender_role": user_role,
-            "encrypted_data": encrypted_message,  # Store the encrypted blob
+            "message": message_text,
             "timestamp": datetime.utcnow(),
             "read": False,
-            "encrypted": True
+            "message_type": "image" if file_attachment else "text"
         }
+        
+        # Add image attachment info if present
+        if file_attachment:
+            message_doc["image_attachment"] = {
+                "file_id": file_attachment.get('file_id'),
+                "original_name": file_attachment.get('original_name'),
+                "file_size": file_attachment.get('file_size'),
+                "file_type": file_attachment.get('file_type')
+            }
         
         messages_collection.insert_one(message_doc)
         
-        # Update conversation (don't store encrypted message as last_message)
+        # Update conversation with last message
         other_role = 'patient' if user_role == 'doctor' else 'doctor'
+        last_message = message_text if message_text else f"🖼️ {file_attachment.get('original_name', 'Image')}"
+        
         conversations_collection.update_one(
             {"_id": ObjectId(conversation_id)},
             {
                 "$set": {
-                    "last_message": "[Encrypted Message]",  # Generic placeholder
+                    "last_message": last_message,
                     "last_message_time": datetime.utcnow()
                 },
                 "$inc": {f"unread_count_{other_role}": 1}
@@ -422,54 +525,78 @@ def start_conversation(current_user):
         "message": "Conversation created successfully"
     }), 201
 
-@app.route('/api/public-keys', methods=['POST'])
+@app.route('/api/upload', methods=['POST'])
 @token_required
-def store_public_keys(current_user):
-    """Store user's public keys for encryption"""
+def upload_image(current_user):
+    """Upload image for messaging"""
     try:
-        data = request.get_json()
-        user_email = current_user.get('email')
+        if 'file' not in request.files:
+            return jsonify({"error": "No image provided"}), 400
         
-        public_keys_doc = {
-            "user_email": user_email,
-            "public_keys": data.get('public_keys'),
-            "updated_at": datetime.utcnow()
-        }
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"error": "No image selected"}), 400
         
-        # Upsert public keys
-        public_keys_collection.update_one(
-            {"user_email": user_email},
-            {"$set": public_keys_doc},
-            upsert=True
-        )
-        
-        return jsonify({"message": "Public keys stored successfully"}), 201
-        
+        if file and allowed_file(file.filename):
+            # Get original file info
+            original_filename = secure_filename(file.filename)
+            file_content = file.read()
+            original_size = len(file_content)
+            file.seek(0)  # Reset file pointer
+            
+            # Compress the image
+            print(f"Compressing image: {original_filename}, original size: {original_size / 1024 / 1024:.2f} MB")
+            compressed_file, compressed_extension = compress_image(file)
+            
+            # Generate unique filename with compressed extension
+            unique_filename = f"{uuid.uuid4().hex}_{original_filename.rsplit('.', 1)[0]}.{compressed_extension}"
+            
+            # Ensure upload directory exists
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+            
+            # Save compressed file
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            
+            if hasattr(compressed_file, 'read'):
+                # It's a BytesIO object from compression
+                with open(filepath, 'wb') as f:
+                    f.write(compressed_file.read())
+                compressed_file.close()
+            else:
+                # It's the original file (compression failed)
+                compressed_file.save(filepath)
+            
+            # Get compressed file info
+            compressed_size = os.path.getsize(filepath)
+            compression_ratio = (1 - compressed_size / original_size) * 100 if original_size > 0 else 0
+            
+            print(f"Compression complete: {compressed_size / 1024 / 1024:.2f} MB, saved {compression_ratio:.1f}%")
+            
+            return jsonify({
+                "message": "Image uploaded and compressed successfully",
+                "file_id": unique_filename,
+                "original_name": original_filename,
+                "file_size": compressed_size,
+                "file_type": compressed_extension,
+                "compression_stats": {
+                    "original_size": original_size,
+                    "compressed_size": compressed_size,
+                    "compression_ratio": f"{compression_ratio:.1f}%"
+                }
+            }), 201
+        else:
+            return jsonify({"error": "Only image files (PNG, JPG, JPEG, GIF) are allowed"}), 400
+            
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": str(e)}), 500
 
-@app.route('/api/public-keys/<other_user_email>', methods=['GET'])
-@token_required
-def get_public_keys(current_user, other_user_email):
-    """Get another user's public keys for encryption"""
+@app.route('/api/files/<filename>')
+def serve_image(filename):
+    """Serve uploaded images"""
     try:
-        # Verify the other user exists
-        other_user = users_collection.find_one({"email": other_user_email})
-        if not other_user:
-            return jsonify({"error": "User not found"}), 404
-            
-        # Get their public keys
-        keys_doc = public_keys_collection.find_one({"user_email": other_user_email})
-        if not keys_doc:
-            return jsonify({"error": "Public keys not found"}), 404
-            
-        return jsonify({
-            "user_email": other_user_email,
-            "public_keys": keys_doc.get('public_keys')
-        })
-        
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": "File not found"}), 404
 
 if __name__ == "__main__":
     app.run(debug=True)
