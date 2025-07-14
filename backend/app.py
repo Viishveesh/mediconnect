@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import jwt
 from pymongo import MongoClient
+from bson import ObjectId
 import bcrypt
 from dotenv import load_dotenv
 import os
@@ -524,6 +525,108 @@ def start_conversation(current_user):
         "conversation_id": str(result.inserted_id),
         "message": "Conversation created successfully"
     }), 201
+
+@app.route('/api/conversations/<conversation_id>/key-exchange/initiate', methods=['POST'])
+@token_required
+def initiate_key_exchange(current_user, conversation_id):
+    """Initiate Diffie-Hellman key exchange for a conversation"""
+    try:
+        data = request.get_json()
+        public_key = data.get('public_key')
+        
+        if not public_key:
+            return jsonify({"error": "Public key is required"}), 400
+        
+        # Verify conversation exists and user is part of it
+        try:
+            conversation_obj_id = ObjectId(conversation_id)
+        except:
+            return jsonify({"error": "Invalid conversation ID"}), 400
+            
+        conversation = conversations_collection.find_one({"_id": conversation_obj_id})
+        if not conversation:
+            return jsonify({"error": "Conversation not found"}), 404
+        
+        user_email = current_user.get('email')
+        if user_email not in [conversation.get('doctor_email'), conversation.get('patient_email')]:
+            return jsonify({"error": "Access denied"}), 403
+        
+        # Store the public key for this user in the conversation
+        update_data = {
+            f"dh_public_key_{user_email.replace('.', '_').replace('@', '_at_')}": public_key,
+            f"dh_key_updated_{user_email.replace('.', '_').replace('@', '_at_')}": datetime.utcnow()
+        }
+        
+        conversations_collection.update_one(
+            {"_id": conversation_obj_id},
+            {"$set": update_data}
+        )
+        
+        return jsonify({
+            "message": "Key exchange initiated successfully",
+            "conversation_id": conversation_id
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": "Failed to initiate key exchange"}), 500
+
+@app.route('/api/conversations/<conversation_id>/key-exchange/complete', methods=['POST'])
+@token_required
+def complete_key_exchange(current_user, conversation_id):
+    """Complete Diffie-Hellman key exchange by providing public key and getting other party's key"""
+    try:
+        data = request.get_json()
+        public_key = data.get('public_key')
+        
+        if not public_key:
+            return jsonify({"error": "Public key is required"}), 400
+        
+        # Verify conversation exists and user is part of it
+        try:
+            conversation_obj_id = ObjectId(conversation_id)
+        except:
+            return jsonify({"error": "Invalid conversation ID"}), 400
+            
+        conversation = conversations_collection.find_one({"_id": conversation_obj_id})
+        if not conversation:
+            return jsonify({"error": "Conversation not found"}), 404
+        
+        user_email = current_user.get('email')
+        if user_email not in [conversation.get('doctor_email'), conversation.get('patient_email')]:
+            return jsonify({"error": "Access denied"}), 403
+        
+        # Determine other user's email
+        other_email = conversation.get('doctor_email') if user_email == conversation.get('patient_email') else conversation.get('patient_email')
+        
+        # Store this user's public key
+        user_key_field = f"dh_public_key_{user_email.replace('.', '_').replace('@', '_at_')}"
+        other_key_field = f"dh_public_key_{other_email.replace('.', '_').replace('@', '_at_')}"
+        
+        update_data = {
+            user_key_field: public_key,
+            f"dh_key_updated_{user_email.replace('.', '_').replace('@', '_at_')}": datetime.utcnow()
+        }
+        
+        conversations_collection.update_one(
+            {"_id": conversation_obj_id},
+            {"$set": update_data}
+        )
+        
+        # Fetch updated conversation to get other party's public key
+        updated_conversation = conversations_collection.find_one({"_id": conversation_obj_id})
+        other_public_key = updated_conversation.get(other_key_field)
+        
+        response_data = {
+            "message": "Key exchange completed successfully",
+            "conversation_id": conversation_id,
+            "other_public_key": other_public_key
+        }
+        
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        return jsonify({"error": "Failed to complete key exchange"}), 500
+
 
 @app.route('/api/upload', methods=['POST'])
 @token_required

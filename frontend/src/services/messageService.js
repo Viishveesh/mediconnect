@@ -33,6 +33,15 @@ export const messageService = {
   // Get messages for a specific conversation
   getMessages: async (conversationId, otherUserEmail) => {
     try {
+      // Setup DH encryption for this conversation if possible
+      if (encryptionManager.isEncryptionSupported()) {
+        try {
+          await messageService.setupDHEncryption(conversationId);
+        } catch (dhError) {
+          console.warn('DH setup failed, using legacy encryption:', dhError);
+        }
+      }
+
       const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages`, {
         method: 'GET',
         headers: getAuthHeaders()
@@ -140,7 +149,7 @@ export const messageService = {
     return `${API_BASE_URL}/files/${fileId}`;
   },
 
-  // Start a new conversation
+  // Start a new conversation and initiate key exchange
   startConversation: async (otherUserEmail) => {
     try {
       const response = await fetch(`${API_BASE_URL}/conversations/start`, {
@@ -153,10 +162,91 @@ export const messageService = {
         throw new Error('Failed to start conversation');
       }
       
-      return await response.json();
+      const result = await response.json();
+      const conversationId = result.conversation_id;
+      
+      // Initiate DH key exchange for new conversations
+      if (encryptionManager.isEncryptionSupported()) {
+        try {
+          const publicKey = await encryptionManager.getPublicKey(conversationId);
+          await messageService.initiateKeyExchange(conversationId, publicKey);
+        } catch (keyExchangeError) {
+          console.warn('Failed to initiate key exchange, falling back to legacy encryption:', keyExchangeError);
+        }
+      }
+      
+      return result;
     } catch (error) {
       console.error('Error starting conversation:', error);
       throw error;
+    }
+  },
+
+  // Initiate Diffie-Hellman key exchange
+  initiateKeyExchange: async (conversationId, publicKey) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/key-exchange/initiate`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ public_key: publicKey })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to initiate key exchange');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error initiating key exchange:', error);
+      throw error;
+    }
+  },
+
+  // Complete Diffie-Hellman key exchange
+  completeKeyExchange: async (conversationId, publicKey) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/key-exchange/complete`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ public_key: publicKey })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to complete key exchange');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error completing key exchange:', error);
+      throw error;
+    }
+  },
+
+
+  // Setup DH encryption for a conversation
+  setupDHEncryption: async (conversationId) => {
+    try {
+      // Check if DH key exchange is already complete
+      if (encryptionManager.isDHKeyExchangeAvailable(conversationId)) {
+        return true;
+      }
+
+      // Get our public key
+      const ourPublicKey = await encryptionManager.getPublicKey(conversationId);
+      
+      // Complete key exchange (send our key and get theirs)
+      const keyExchangeResult = await messageService.completeKeyExchange(conversationId, ourPublicKey);
+      
+      if (keyExchangeResult.other_public_key) {
+        // Complete the shared secret calculation
+        await encryptionManager.completeKeyExchange(conversationId, keyExchangeResult.other_public_key);
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error('Error setting up DH encryption:', error);
+      return false;
     }
   },
 
