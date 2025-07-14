@@ -5,3 +5,5 @@ backend/mediconnect-env
 backend/uploads
 .env
 frontend/pacakage-lock.json
+frontend/build
+backend/__pycache__
