@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 // import pages 
@@ -18,29 +18,7 @@ import BookAppointment from './pages/patient/BookAppointment';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 
-// Import encryption test for development
-import { runAllTests } from './utils/encryptionTest';
-import { quickTest } from './utils/quickTest';
-import { clearAllEncryptionKeys } from './utils/clearKeys';
-
 function App() {
-  // Run encryption tests in development
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔐 MediConnect - End-to-End Encryption Enabled');
-      
-      // Make clear function available in console
-      window.clearAllEncryptionKeys = clearAllEncryptionKeys;
-      
-      // Run quick test first, then full tests
-      setTimeout(() => {
-        quickTest().then(() => {
-          return runAllTests();
-        }).catch(console.error);
-      }, 2000);
-    }
-  }, []);
-
   return(
      <Router>
       <div className="App" style={{ paddingTop: '70px' }}>

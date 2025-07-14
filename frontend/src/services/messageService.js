@@ -48,19 +48,13 @@ export const messageService = {
       if (data.messages && Array.isArray(data.messages)) {
         for (let message of data.messages) {
           if (message.message && encryptionManager.isEncryptionSupported()) {
-            const originalMessage = message.message;
-            console.log('🔍 Attempting to decrypt message:', originalMessage.substring(0, 50) + '...');
-            console.log('🆔 Using conversation ID for decryption:', conversationId);
-            
             try {
               // Attempt to decrypt the message
               const decryptedMessage = await encryptionManager.decryptMessage(conversationId, message.message);
               message.message = decryptedMessage;
-              console.log('✅ Decrypted successfully:', decryptedMessage);
             } catch (error) {
               console.warn('Failed to decrypt message:', error);
               // Keep the original message if decryption fails (could be legacy plain text)
-              console.log('⚠️ Keeping original message:', originalMessage);
             }
           }
         }
@@ -76,20 +70,11 @@ export const messageService = {
   // Send a message
   sendMessage: async (conversationId, message, otherUserEmail, imageAttachment = null) => {
     try {
-      console.log('Sending message:', { conversationId, message: '[ENCRYPTED]', imageAttachment });
-      console.log('🆔 Using conversation ID for encryption:', conversationId);
-      
       // Encrypt the message before sending
       let encryptedMessage = '';
       if (message && message.trim()) {
         if (encryptionManager.isEncryptionSupported()) {
           encryptedMessage = await encryptionManager.encryptMessage(conversationId, message.trim());
-          console.log('Message encrypted successfully');
-          
-          // Debug: Log key info during encryption
-          const key = await encryptionManager.loadConversationKey(conversationId);
-          const keyData = await crypto.subtle.exportKey('jwk', key);
-          console.log('🔑 Encryption key fingerprint:', keyData.k?.substring(0, 10) + '...');
         } else {
           console.warn('Encryption not supported, sending plain text');
           encryptedMessage = message.trim();

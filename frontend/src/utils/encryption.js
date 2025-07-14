@@ -59,8 +59,6 @@ class EncryptionManager {
       // Also persist to localStorage for browser refresh
       localStorage.setItem(`chat_key_${conversationId}`, JSON.stringify(jwkKey));
       
-      console.log('🔑 Generated deterministic key for conversation:', conversationId);
-      console.log('🔑 Key fingerprint:', keyBase64.substring(0, 10) + '...');
       
       return key;
     } catch (error) {
@@ -86,7 +84,6 @@ class EncryptionManager {
           // Check if this is an old random key (not deterministic)
           // Version 2 = deterministic keys, anything else should be regenerated
           if (!keyData.k || !keyData.kty || keyData.kty !== 'oct' || keyData.version !== 2) {
-            console.log('🔄 Old key version detected, regenerating deterministic key...');
             localStorage.removeItem(`chat_key_${conversationId}`);
             return await this.generateConversationKey(conversationId);
           }
@@ -105,7 +102,6 @@ class EncryptionManager {
           this.conversationKeys.set(conversationId, key);
           return key;
         } catch (keyError) {
-          console.log('🔄 Invalid stored key, regenerating...');
           localStorage.removeItem(`chat_key_${conversationId}`);
           return await this.generateConversationKey(conversationId);
         }
@@ -175,18 +171,10 @@ class EncryptionManager {
       // Check if this looks like encrypted data (base64)
       // If it doesn't look encrypted, assume it's legacy plain text
       if (!this.isBase64(encryptedData)) {
-        console.log('🔍 Message appears to be legacy plain text, returning as-is:', encryptedData);
         return encryptedData;
       }
 
-      console.log('🔐 Detected encrypted message, attempting decryption...');
-
       const key = await this.loadConversationKey(conversationId);
-      
-      // Debug: Check if key exists and log key info
-      console.log('🔑 Loaded key for conversation:', conversationId);
-      const keyData = await crypto.subtle.exportKey('jwk', key);
-      console.log('🔑 Key fingerprint:', keyData.k?.substring(0, 10) + '...');
       
       // Decode from base64
       const combined = new Uint8Array(
@@ -214,15 +202,10 @@ class EncryptionManager {
 
       const decoder = new TextDecoder();
       const result = decoder.decode(decrypted);
-      console.log('🎉 Successfully decrypted message:', result);
       return result;
     } catch (error) {
-      console.error('❌ Message decryption failed:', error);
-      console.error('Error type:', error.name);
-      console.error('Error message:', error.message);
-      
+      console.warn('Message decryption failed, assuming legacy plain text:', error.message);
       // Return original data for legacy compatibility
-      console.warn('⚠️ Returning original encrypted data as fallback');
       return encryptedData;
     }
   }
@@ -236,16 +219,13 @@ class EncryptionManager {
       // Base64 regex pattern - allow any length, padding will be handled by atob
       const base64Pattern = /^[A-Za-z0-9+/]*={0,2}$/;
       if (!base64Pattern.test(str)) {
-        console.log('🔍 Failed base64 regex test:', str.substring(0, 20) + '...');
         return false;
       }
       
       // Try to decode
       atob(str);
-      console.log('✅ Valid base64 detected:', str.substring(0, 20) + '...');
       return true;
     } catch (e) {
-      console.log('❌ Base64 decode failed:', e.message);
       return false;
     }
   }
