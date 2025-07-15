@@ -8,4 +8,4 @@ frontend/pacakage-lock.json
 frontend/build
 backend/__pycache__
 
-# Also include backend/uploads directory. I haven't added so that all of us can try.
+# Also include backend/uploads directory in here. I haven't added so that all of us can try.
