@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import LogOut from '../auth/LogOut.jsx';
 import DoctorProfile from './DoctorProfile.jsx';
 import { useMessages } from '../../hooks/useMessages';
@@ -7,6 +8,7 @@ import { messageService } from '../../services/messageService';
 const DoctorDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
     const [doctorName, setDoctorName] = useState('Doctor');
+    const [doctorProfile, setDoctorProfile] = useState(null);
     const {
         conversations,
         activeConversation,
@@ -29,16 +31,31 @@ const DoctorDashboard = () => {
         if (name) {
             setDoctorName(`Dr. ${name}`);
         }
+        
+        // Fetch doctor profile
+        fetchDoctorProfile();
     }, []);
 
-    // Dummy data
+    const fetchDoctorProfile = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get('http://localhost:5000/api/doctor/profile', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setDoctorProfile(response.data);
+        } catch (error) {
+            console.error('Error fetching doctor profile:', error);
+        }
+    };
+
+    // Dynamic doctor data
     const doctorData = {
         name: doctorName,
-        specialty: "Cardiologist",
-        email: "emily.chen@mediconnect.com",
-        phone: "+1 (555) 456-7890",
-        license: "MD-12345-CA",
-        experience: "12 years",
+        specialty: doctorProfile?.specialization || "Not specified",
+        email: doctorProfile?.email || localStorage.getItem('email') || "Not specified",
+        phone: doctorProfile?.contactNumber || "Not specified",
+        license: doctorProfile?.medicalLicense || "Not specified",
+        experience: doctorProfile?.experience ? `${doctorProfile.experience} years` : "Not specified",
         rating: 4.8,
         totalPatients: 342
     };
