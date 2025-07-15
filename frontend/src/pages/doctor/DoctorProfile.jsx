@@ -18,6 +18,9 @@ const DoctorProfile = () => {
     medicalLicense: ''
   });
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -63,6 +66,9 @@ const DoctorProfile = () => {
         address: response.data.address || '',
         medicalLicense: response.data.medicalLicense || ''
       });
+      if (response.data.profilePhoto) {
+        setPhotoPreview(`http://localhost:5000/api/files/${response.data.profilePhoto}`);
+      }
     } catch (error) {
       if (error.response?.status === 404) {
         setIsEditing(true);
@@ -101,6 +107,48 @@ const DoctorProfile = () => {
     setMessage({ type: '', text: '' });
   };
 
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setMessage({ type: 'error', text: 'Image size must be less than 5MB' });
+        return;
+      }
+      
+      setSelectedPhoto(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPhotoPreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadPhoto = async () => {
+    if (!selectedPhoto) return null;
+    
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', selectedPhoto);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post('http://localhost:5000/api/upload', formData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data.file_id;
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      setMessage({ type: 'error', text: 'Failed to upload photo' });
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -119,12 +167,25 @@ const DoctorProfile = () => {
       const method = profile ? 'put' : 'post';
       const message = profile ? 'Profile updated successfully!' : 'Profile created successfully!';
       
-      await axios[method]('http://localhost:5000/api/doctor/profile', formData, {
+      // Upload photo if selected
+      let photoId = null;
+      if (selectedPhoto) {
+        photoId = await uploadPhoto();
+        if (!photoId) return; // Stop if photo upload failed
+      }
+      
+      const submitData = { ...formData };
+      if (photoId) {
+        submitData.profilePhoto = photoId;
+      }
+      
+      await axios[method]('http://localhost:5000/api/doctor/profile', submitData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       setMessage({ type: 'success', text: message });
       setIsEditing(false);
+      setSelectedPhoto(null);
       fetchProfile();
     } catch (error) {
       setMessage({
@@ -155,6 +216,35 @@ const DoctorProfile = () => {
 
               {isEditing ? (
                 <form onSubmit={handleSubmit}>
+                  <div className="form-group mb-4">
+                    <label className="form-label">Profile Photo</label>
+                    <div className="d-flex align-items-center gap-3">
+                      <div className="me-3">
+                        <div className="bg-white rounded-circle p-2" style={{width: '50px', height: '50px'}}>
+                          {photoPreview ? (
+                            <img 
+                              src={photoPreview} 
+                              alt="Profile" 
+                              className="rounded-circle"
+                              style={{width: '100%', height: '100%', objectFit: 'cover'}}
+                            />
+                          ) : (
+                            <i className="fas fa-user-md text-primary" style={{fontSize: '1.5rem'}}></i>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoChange}
+                          className="form-control"
+                          style={{width: '300px'}}
+                        />
+                        <small className="form-text text-muted">Upload a profile photo (Max 5MB)</small>
+                      </div>
+                    </div>
+                  </div>
                   <div className="row">
                     <div className="col-md-6">
                       <div className="form-group mb-3">
@@ -296,6 +386,27 @@ const DoctorProfile = () => {
                 </form>
               ) : (
                 <div>
+                  <div className="d-flex align-items-center mb-4">
+                    <div className="me-3">
+                      <div className="bg-white rounded-circle p-2" style={{width: '50px', height: '50px'}}>
+                        {photoPreview ? (
+                          <img 
+                            src={photoPreview} 
+                            alt="Profile" 
+                            className="rounded-circle"
+                            style={{width: '100%', height: '100%', objectFit: 'cover'}}
+                          />
+                        ) : (
+                          <i className="fas fa-user-md text-primary" style={{fontSize: '1.5rem'}}></i>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <h4>{profile?.firstName || userInfo.firstName} {profile?.lastName || userInfo.lastName}</h4>
+                      <p className="text-muted mb-0">{profile?.email || userInfo.email}</p>
+                      <p className="text-muted mb-0">{profile?.specialization || 'Specialization not specified'}</p>
+                    </div>
+                  </div>
                   <div className="row">
                     <div className="col-md-6">
                       <h5>Personal Information</h5>

@@ -1381,7 +1381,16 @@ const DoctorDashboard = () => {
                             <div className="d-flex align-items-center">
                                 <div className="me-3">
                                     <div className="bg-white rounded-circle p-2" style={{ width: '50px', height: '50px' }}>
-                                        <i className="fas fa-user-md text-primary" style={{ fontSize: '1.5rem' }}></i>
+                                        {doctorProfile?.profilePhoto ? (
+                                            <img 
+                                                alt="Profile" 
+                                                className="rounded-circle" 
+                                                src={`http://localhost:5000/api/files/${doctorProfile.profilePhoto}`}
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                            />
+                                        ) : (
+                                            <i className="fas fa-user-md text-primary" style={{ fontSize: '1.5rem' }}></i>
+                                        )}
                                     </div>
                                 </div>
                                 <div>
