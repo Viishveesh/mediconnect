@@ -307,7 +307,7 @@ const PatientProfile = () => {
                       <h5>Personal Information</h5>
                       <p><strong>Name:</strong> {profile.firstName} {profile.lastName}</p>
                       <p><strong>Email:</strong> {profile.email}</p>
-                      <p><strong>Date of Birth:</strong> {new Date(profile.dateOfBirth).toLocaleDateString()}</p>
+                      <p><strong>Date of Birth:</strong> {profile.dateOfBirth}</p>
                       <p><strong>Gender:</strong> {profile.gender}</p>
                       <p><strong>Contact:</strong> {profile.contactNumber}</p>
                       <p><strong>Emergency Contact:</strong> {profile.emergencyContact}</p>
