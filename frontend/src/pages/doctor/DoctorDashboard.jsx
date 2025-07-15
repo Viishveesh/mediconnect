@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import LogOut from '../auth/LogOut.jsx';
+import DoctorProfile from './DoctorProfile.jsx';
 import { useMessages } from '../../hooks/useMessages';
 import { messageService } from '../../services/messageService';
 
@@ -1274,84 +1275,8 @@ const DoctorDashboard = () => {
                     <LogOut />
                 </div>
             </div>
-
-            <div className="col-12 col-lg-4">
-                <div className="card text-center">
-                    <div className="card-body">
-                        <img
-                            src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop&crop=face"
-                            alt="Profile"
-                            className="rounded-circle mb-3"
-                            style={{ width: '120px', height: '120px', objectFit: 'cover' }}
-                        />
-                        <h5>{doctorData.name}</h5>
-                        <p className="text-muted">{doctorData.specialty}</p>
-                        <p className="text-muted small">License: {doctorData.license}</p>
-                        <div className="d-flex justify-content-center align-items-center mb-3">
-                            <div className="me-3">
-                                <span className="text-warning">
-                                    {'★'.repeat(Math.floor(doctorData.rating))}
-                                    {'☆'.repeat(5 - Math.floor(doctorData.rating))}
-                                </span>
-                                <span className="ms-1">{doctorData.rating}</span>
-                            </div>
-                        </div>
-                        <button className="btn btn-outline-primary">
-                            <i className="fas fa-camera me-2"></i>Change Photo
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div className="col-12 col-lg-8">
-                <div className="card">
-                    <div className="card-header">
-                        <h5 className="mb-0">Professional Information</h5>
-                    </div>
-                    <div className="card-body">
-                        <div>
-                            <div className="row g-3">
-                                <div className="col-12 col-md-6">
-                                    <label className="form-label">Full Name</label>
-                                    <input type="text" className="form-control" defaultValue={doctorData.name} />
-                                </div>
-                                <div className="col-12 col-md-6">
-                                    <label className="form-label">Specialty</label>
-                                    <input type="text" className="form-control" defaultValue={doctorData.specialty} />
-                                </div>
-                                <div className="col-12 col-md-6">
-                                    <label className="form-label">Email</label>
-                                    <input type="email" className="form-control" defaultValue={doctorData.email} />
-                                </div>
-                                <div className="col-12 col-md-6">
-                                    <label className="form-label">Phone</label>
-                                    <input type="tel" className="form-control" defaultValue={doctorData.phone} />
-                                </div>
-                                <div className="col-12 col-md-6">
-                                    <label className="form-label">Medical License</label>
-                                    <input type="text" className="form-control" defaultValue={doctorData.license} />
-                                </div>
-                                <div className="col-12 col-md-6">
-                                    <label className="form-label">Years of Experience</label>
-                                    <input type="text" className="form-control" defaultValue={doctorData.experience} />
-                                </div>
-                                <div className="col-12">
-                                    <label className="form-label">Bio</label>
-                                    <textarea className="form-control" rows="4" placeholder="Write a brief professional bio..."></textarea>
-                                </div>
-                                <div className="col-12">
-                                    <label className="form-label">Specializations</label>
-                                    <textarea className="form-control" rows="3" placeholder="List your medical specializations and areas of expertise..."></textarea>
-                                </div>
-                                <div className="col-12">
-                                    <button type="button" className="btn btn-primary">
-                                        <i className="fas fa-save me-2"></i>Save Changes
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div className="col-12">
+                <DoctorProfile />
             </div>
         </div>
     );

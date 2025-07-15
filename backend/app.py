@@ -12,7 +12,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -116,6 +116,8 @@ users_collection = db.users
 appointments_collection = db.appointment
 messages_collection = db.messages
 conversations_collection = db.conversations
+doctor_profiles_collection = db.doctor_profiles
+patient_profiles_collection = db.patient_profiles
 
 @app.route("/api/signup", methods=["POST"])
 def signup():
@@ -157,7 +159,7 @@ def login():
     token = jwt.encode({
         "email": email,
         "role": user.get("role"),
-        "exp": datetime.utcnow() + timedelta(hours=1)
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1)
     }, app.config['SECRET_KEY'], algorithm="HS256")
 
     return jsonify({
@@ -190,7 +192,7 @@ def send_email_with_ics(name, recipient_email, doctor_name, date_str, time_str):
     end_dt = start_dt + timedelta(minutes=30)
 
     # iCalendar date formatting (UTC)
-    dtstamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    dtstamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     dtstart = start_dt.strftime("%Y%m%dT%H%M%S")
     dtend = end_dt.strftime("%Y%m%dT%H%M%S")
 
@@ -298,7 +300,7 @@ def book_appointment(current_user):
             "doctorName": doctor_name,
             "date": date,
             "time": time,
-            "bookedAt": datetime.utcnow()
+            "bookedAt": datetime.now(timezone.utc)
         }
         appointments_collection.insert_one(appointment_doc)
         return jsonify({"message": "Appointment booked and email sent"}), 200
@@ -315,6 +317,159 @@ def get_booked_slots(doctor_id, date):
 
     times = [slot["time"] for slot in booked]
     return jsonify({"bookedSlots": times})
+
+@app.route("/api/doctor/profile", methods=["POST"])
+@token_required
+def create_doctor_profile(current_user):
+    if current_user.get("role") != "doctor":
+        return jsonify({"message": "Access denied. Only doctors can create doctor profiles."}), 403
+    
+    data = request.json
+    
+    existing_profile = doctor_profiles_collection.find_one({"userId": str(current_user["_id"])})
+    if existing_profile:
+        return jsonify({"message": "Doctor profile already exists"}), 400
+    
+    profile = {
+        "userId": str(current_user["_id"]),
+        "email": current_user.get("email"),
+        "firstName": current_user.get("firstName"),
+        "lastName": current_user.get("lastName"),
+        "clinicName": data.get("clinicName"),
+        "specialization": data.get("specialization"),
+        "experience": data.get("experience"),
+        "qualification": data.get("qualification"),
+        "medicalLicense": data.get("medicalLicense"),
+        "consultationFee": data.get("consultationFee"),
+        "contactNumber": data.get("contactNumber"),
+        "address": data.get("address"),
+        "createdAt": datetime.now(timezone.utc)
+    }
+    
+    doctor_profiles_collection.insert_one(profile)
+    return jsonify({"message": "Doctor profile created successfully"}), 201
+
+@app.route("/api/doctor/profile", methods=["PUT"])
+@token_required
+def update_doctor_profile(current_user):
+    if current_user.get("role") != "doctor":
+        return jsonify({"message": "Access denied. Only doctors can update doctor profiles."}), 403
+    
+    data = request.json
+    
+    existing_profile = doctor_profiles_collection.find_one({"userId": str(current_user["_id"])})
+    if not existing_profile:
+        return jsonify({"message": "Doctor profile not found"}), 404
+    
+    updated_profile = {
+        "clinicName": data.get("clinicName"),
+        "specialization": data.get("specialization"),
+        "experience": data.get("experience"),
+        "qualification": data.get("qualification"),
+        "medicalLicense": data.get("medicalLicense"),
+        "consultationFee": data.get("consultationFee"),
+        "contactNumber": data.get("contactNumber"),
+        "address": data.get("address"),
+        "updatedAt": datetime.now(timezone.utc)
+    }
+    
+    doctor_profiles_collection.update_one(
+        {"userId": str(current_user["_id"])},
+        {"$set": updated_profile}
+    )
+    return jsonify({"message": "Doctor profile updated successfully"}), 200
+
+@app.route("/api/doctor/profile", methods=["GET"])
+@token_required
+def get_doctor_profile(current_user):
+    if current_user.get("role") != "doctor":
+        return jsonify({"message": "Access denied"}), 403
+    
+    profile = doctor_profiles_collection.find_one({"userId": str(current_user["_id"])})
+    if not profile:
+        return jsonify({"message": "Profile not found"}), 404
+    
+    profile["_id"] = str(profile["_id"])
+    return jsonify(profile)
+
+@app.route("/api/patient/profile", methods=["POST"])
+@token_required
+def create_patient_profile(current_user):
+    if current_user.get("role") != "patient":
+        return jsonify({"message": "Access denied. Only patients can create patient profiles."}), 403
+    
+    data = request.json
+    
+    existing_profile = patient_profiles_collection.find_one({"userId": str(current_user["_id"])})
+    if existing_profile:
+        return jsonify({"message": "Patient profile already exists"}), 400
+    
+    profile = {
+        "userId": str(current_user["_id"]),
+        "email": current_user.get("email"),
+        "firstName": current_user.get("firstName"),
+        "lastName": current_user.get("lastName"),
+        "dateOfBirth": data.get("dateOfBirth"),
+        "gender": data.get("gender"),
+        "contactNumber": data.get("contactNumber"),
+        "address": data.get("address"),
+        "emergencyContact": data.get("emergencyContact"),
+        "bloodGroup": data.get("bloodGroup"),
+        "customBloodGroup": data.get("customBloodGroup"),
+        "allergies": data.get("allergies"),
+        "medicalHistory": data.get("medicalHistory"),
+        "createdAt": datetime.now(timezone.utc)
+    }
+    
+    try:
+        result = patient_profiles_collection.insert_one(profile)
+        return jsonify({"message": "Patient profile created successfully"}), 201
+    except Exception as e:
+        return jsonify({"message": f"Error creating profile: {str(e)}"}), 500
+
+@app.route("/api/patient/profile", methods=["PUT"])
+@token_required
+def update_patient_profile(current_user):
+    if current_user.get("role") != "patient":
+        return jsonify({"message": "Access denied. Only patients can update patient profiles."}), 403
+    
+    data = request.json
+    
+    existing_profile = patient_profiles_collection.find_one({"userId": str(current_user["_id"])})
+    if not existing_profile:
+        return jsonify({"message": "Patient profile not found"}), 404
+    
+    updated_profile = {
+        "dateOfBirth": data.get("dateOfBirth"),
+        "gender": data.get("gender"),
+        "contactNumber": data.get("contactNumber"),
+        "address": data.get("address"),
+        "emergencyContact": data.get("emergencyContact"),
+        "bloodGroup": data.get("bloodGroup"),
+        "customBloodGroup": data.get("customBloodGroup"),
+        "allergies": data.get("allergies"),
+        "medicalHistory": data.get("medicalHistory"),
+        "updatedAt": datetime.now(timezone.utc)
+    }
+    
+    patient_profiles_collection.update_one(
+        {"userId": str(current_user["_id"])},
+        {"$set": updated_profile}
+    )
+    return jsonify({"message": "Patient profile updated successfully"}), 200
+
+@app.route("/api/patient/profile", methods=["GET"])
+@token_required
+def get_patient_profile(current_user):
+    if current_user.get("role") != "patient":
+        return jsonify({"message": "Access denied"}), 403
+    
+    profile = patient_profiles_collection.find_one({"userId": str(current_user["_id"])})
+    if not profile:
+        return jsonify({"message": "Profile not found"}), 404
+    
+    profile["_id"] = str(profile["_id"])
+    return jsonify(profile)
 
 @app.route('/api/conversations', methods=['GET'])
 @token_required
@@ -435,7 +590,7 @@ def send_message(current_user, conversation_id):
             "sender_email": user_email,
             "sender_role": user_role,
             "message": message_text,
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
             "read": False,
             "message_type": "image" if file_attachment else "text"
         }
@@ -460,7 +615,7 @@ def send_message(current_user, conversation_id):
             {
                 "$set": {
                     "last_message": last_message,
-                    "last_message_time": datetime.utcnow(),
+                    "last_message_time": datetime.now(timezone.utc),
                     "last_message_sender_email": user_email
                 },
                 "$inc": {f"unread_count_{other_role}": 1}
@@ -514,9 +669,9 @@ def start_conversation(current_user):
     conversation_doc = {
         "doctor_email": doctor_email,
         "patient_email": patient_email,
-        "created_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
         "last_message": "",
-        "last_message_time": datetime.utcnow(),
+        "last_message_time": datetime.now(timezone.utc),
         "unread_count_doctor": 0,
         "unread_count_patient": 0
     }
@@ -556,7 +711,7 @@ def initiate_key_exchange(current_user, conversation_id):
         # Store the public key for this user in the conversation
         update_data = {
             f"dh_public_key_{user_email.replace('.', '_').replace('@', '_at_')}": public_key,
-            f"dh_key_updated_{user_email.replace('.', '_').replace('@', '_at_')}": datetime.utcnow()
+            f"dh_key_updated_{user_email.replace('.', '_').replace('@', '_at_')}": datetime.now(timezone.utc)
         }
         
         conversations_collection.update_one(
@@ -606,7 +761,7 @@ def complete_key_exchange(current_user, conversation_id):
         
         update_data = {
             user_key_field: public_key,
-            f"dh_key_updated_{user_email.replace('.', '_').replace('@', '_at_')}": datetime.utcnow()
+            f"dh_key_updated_{user_email.replace('.', '_').replace('@', '_at_')}": datetime.now(timezone.utc)
         }
         
         conversations_collection.update_one(
