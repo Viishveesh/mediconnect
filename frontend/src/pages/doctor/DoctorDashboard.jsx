@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import LogOut from '../auth/LogOut.jsx';
 import DoctorProfile from './DoctorProfile.jsx';
 import { useMessages } from '../../hooks/useMessages';
@@ -6,6 +6,7 @@ import { messageService } from '../../services/messageService';
 
 const DoctorDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
+    const [doctorName, setDoctorName] = useState('Doctor');
     const {
         conversations,
         activeConversation,
@@ -22,9 +23,17 @@ const DoctorDashboard = () => {
     const [selectedImage, setSelectedImage] = useState(null);
     const [uploading, setUploading] = useState(false);
 
+    useEffect(() => {
+        // Get doctor's name from localStorage
+        const name = localStorage.getItem('name');
+        if (name) {
+            setDoctorName(`Dr. ${name}`);
+        }
+    }, []);
+
     // Dummy data
     const doctorData = {
-        name: "Dr. Emily Chen",
+        name: doctorName,
         specialty: "Cardiologist",
         email: "emily.chen@mediconnect.com",
         phone: "+1 (555) 456-7890",
