@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import LogOut from '../auth/LogOut.jsx';
 import PatientProfile from './PatientProfile.jsx';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +10,7 @@ import { messageService } from '../../services/messageService';
 const PatientDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
     const [patientName, setPatientName] = useState('Patient');
+    const [patientProfile, setPatientProfile] = useState(null);
     const navigate = useNavigate();
     const {
         conversations,
@@ -32,16 +34,31 @@ const PatientDashboard = () => {
         if (name) {
             setPatientName(name);
         }
+        
+        // Fetch patient profile
+        fetchPatientProfile();
     }, []);
 
-    // Dummy data
+    const fetchPatientProfile = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get('http://localhost:5000/api/patient/profile', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setPatientProfile(response.data);
+        } catch (error) {
+            console.error('Error fetching patient profile:', error);
+        }
+    };
+
+    // Dynamic patient data
     const patientData = {
         name: patientName,
-        email: "sarah.johnson@email.com",
-        phone: "+1 (555) 123-4567",
-        dateOfBirth: "1985-06-15",
-        bloodType: "O+",
-        emergencyContact: "John Johnson - +1 (555) 987-6543"
+        email: patientProfile?.email || localStorage.getItem('email') || "Not specified",
+        phone: patientProfile?.contactNumber || "Not specified",
+        dateOfBirth: patientProfile?.dateOfBirth || "Not specified",
+        bloodType: patientProfile?.bloodGroup || "Not specified",
+        emergencyContact: patientProfile?.emergencyContact || "Not specified"
     };
 
     const upcomingAppointments = [
