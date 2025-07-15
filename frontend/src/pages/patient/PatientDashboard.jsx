@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import LogOut from '../auth/LogOut.jsx';
 import PatientProfile from './PatientProfile.jsx';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,7 @@ import { messageService } from '../../services/messageService';
 
 const PatientDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
+    const [patientName, setPatientName] = useState('Patient');
     const navigate = useNavigate();
     const {
         conversations,
@@ -25,10 +26,17 @@ const PatientDashboard = () => {
     const [selectedImage, setSelectedImage] = useState(null);
     const [uploading, setUploading] = useState(false);
 
+    useEffect(() => {
+        // Get patient's name from localStorage
+        const name = localStorage.getItem('name');
+        if (name) {
+            setPatientName(name);
+        }
+    }, []);
 
     // Dummy data
     const patientData = {
-        name: "Sarah Johnson",
+        name: patientName,
         email: "sarah.johnson@email.com",
         phone: "+1 (555) 123-4567",
         dateOfBirth: "1985-06-15",
