@@ -343,6 +343,7 @@ def create_doctor_profile(current_user):
         "consultationFee": data.get("consultationFee"),
         "contactNumber": data.get("contactNumber"),
         "address": data.get("address"),
+        "profilePhoto": data.get("profilePhoto"),
         "createdAt": datetime.now(timezone.utc)
     }
     
@@ -372,6 +373,9 @@ def update_doctor_profile(current_user):
         "address": data.get("address"),
         "updatedAt": datetime.now(timezone.utc)
     }
+    
+    if data.get("profilePhoto"):
+        updated_profile["profilePhoto"] = data.get("profilePhoto")
     
     doctor_profiles_collection.update_one(
         {"userId": str(current_user["_id"])},
@@ -418,6 +422,7 @@ def create_patient_profile(current_user):
         "customBloodGroup": data.get("customBloodGroup"),
         "allergies": data.get("allergies"),
         "medicalHistory": data.get("medicalHistory"),
+        "profilePhoto": data.get("profilePhoto"),
         "createdAt": datetime.now(timezone.utc)
     }
     
@@ -451,6 +456,9 @@ def update_patient_profile(current_user):
         "medicalHistory": data.get("medicalHistory"),
         "updatedAt": datetime.now(timezone.utc)
     }
+    
+    if data.get("profilePhoto"):
+        updated_profile["profilePhoto"] = data.get("profilePhoto")
     
     patient_profiles_collection.update_one(
         {"userId": str(current_user["_id"])},
