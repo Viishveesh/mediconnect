@@ -35,8 +35,8 @@ const DoctorSchedule = () => {
           slot.type === "available"
             ? "Available"
             : `Busy: ${slot.reason || "Unavailable"}`,
-        start: slot.startTime,
-        end: slot.endTime,
+        start: new Date(slot.startTime),
+        end: new Date(slot.endTime),
         backgroundColor: slot.type === "available" ? "#38A169" : "#E53E3E",
         borderRadius: "8px",
         borderColor: "#ccc",
@@ -139,6 +139,22 @@ const DoctorSchedule = () => {
           className="google-sync-btn"
           onClick={() => {
             const token = localStorage.getItem("token");
+            const doctorId = localStorage.getItem("doctorId");
+
+            if (!token || !doctorId) {
+              alert("Please login again — token or doctorId missing.");
+              return;
+            }
+
+            // Optional: check if route matches token’s doctorId
+            const decoded = JSON.parse(atob(token.split(".")[1]));
+            if (decoded.doctorId !== doctorId) {
+              alert(
+                "Doctor ID mismatch in token! Please logout and login again."
+              );
+              return;
+            }
+
             window.location.href = `http://localhost:5000/google/login?token=${token}`;
           }}
         >
@@ -198,6 +214,7 @@ const DoctorSchedule = () => {
             allDaySlot={false}
             selectable={true}
             eventOverlap={false}
+            timeZone="local"
             select={handleSlotSelect}
             eventClick={handleEventClick}
           />

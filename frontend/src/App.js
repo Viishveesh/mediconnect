@@ -16,6 +16,7 @@ import "./assets/css/styles.css"
 import BrowseDoctors from './pages/BrowseDoctors';
 import DoctorProfile from './pages/DoctorProfile';
 import BookAppointment from './pages/BookAppointment';
+import OAuthSuccess from './pages/0AuthSuccess';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -31,6 +32,7 @@ function App() {
         {/* Protected Route */}
         <Route path="/doctor/dashboard" element={ <ProtectedRoute> <DoctorDashboard /> </ProtectedRoute>} />
         <Route path="/doctor/schedule/:doctorId" element={<ProtectedRoute> <DoctorSchedule /> </ProtectedRoute>} />
+        <Route path="/oauth-success" element={<OAuthSuccess />} />
         
         <Route path="/patient/dashboard" element={ <ProtectedRoute> <PatientDashboard /> </ProtectedRoute>} />
         <Route path="/" element={<ProtectedRoute> <LandingPage /> </ProtectedRoute>} />

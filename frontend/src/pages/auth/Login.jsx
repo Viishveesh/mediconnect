@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from 'jwt-decode';
 
 const Login = ({ toggleForm }) => {
   const navigate = useNavigate();
@@ -17,10 +18,15 @@ const Login = ({ toggleForm }) => {
 
     try {
       const res = await axios.post("http://localhost:5000/api/login", formData);
-      const { token, role } = res.data;
+      const { token, role, doctorId } = res.data;
+      const decoded = jwtDecode(token);
 
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
+
+      if (role === "doctor" && doctorId) {
+        localStorage.setItem("doctorId", decoded.doctorId);
+      }
 
       setMessage({ type: 'success', text: 'Login successful! Redirecting...' });
 

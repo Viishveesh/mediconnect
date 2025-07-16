@@ -1,15 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const DoctorDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
-
+    const [doctorId, setDoctorId] = useState(null);
     const navigate = useNavigate();
 
-    const handleViewSchedule = () => {
-        navigate('/doctor/schedule/686972d642b66e848a66cebe');
-    };
+    useEffect(() => {
+    const storedId = localStorage.getItem('doctorId');
+    if (storedId) {
+      setDoctorId(storedId);
+    } else {
+      alert("Doctor ID not found. Please login again.");
+      navigate('/login');
+    }
+  }, [navigate]);
 
+  const handleViewSchedule = () => {
+    if (doctorId) {
+      navigate(`/doctor/schedule/${doctorId}`);
+    }
+  };
 
     // Dummy data
     const doctorData = {
