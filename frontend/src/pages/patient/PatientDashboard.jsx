@@ -5,12 +5,16 @@ import PatientProfile from './PatientProfile.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useMessages } from '../../hooks/useMessages';
 import { messageService } from '../../services/messageService';
+import { Modal, Button } from 'react-bootstrap';
+
+import './Dashboard.css';
 
 
 const PatientDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
     const [patientName, setPatientName] = useState('Patient');
     const [patientProfile, setPatientProfile] = useState(null);
+    const [availableDoctor, setAvailableDoctors] = useState([]);
     const navigate = useNavigate();
     const {
         conversations,
@@ -27,6 +31,20 @@ const PatientDashboard = () => {
     const [newMessage, setNewMessage] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [specialtyFilter, setSpecialtyFilter] = useState('All');
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [selectedDoctor, setSelectedDoctor] = useState(null);
+
+    const handleShowProfile = (doctor) => {
+        console.log("Selected doctor:", doctor);
+        setSelectedDoctor(doctor);
+        setShowProfileModal(true);
+    };
+
+    const handleCloseProfile = () => {
+        setShowProfileModal(false);
+        setSelectedDoctor(null);
+    };
 
     useEffect(() => {
         // Get patient's name from localStorage
@@ -37,6 +55,7 @@ const PatientDashboard = () => {
         
         // Fetch patient profile
         fetchPatientProfile();
+        fetchAvailableDoctors();
     }, []);
 
     const fetchPatientProfile = async () => {
@@ -50,6 +69,29 @@ const PatientDashboard = () => {
             console.error('Error fetching patient profile:', error);
         }
     };
+    const fetchAvailableDoctors = () => {
+    axios.get("http://localhost:5000/api/doctors", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+    })
+    .then(res => setAvailableDoctors(res.data))
+    .catch(err => {
+        console.error("Failed to fetch doctors:", err);
+    });
+    };
+
+    const filteredDoctors = availableDoctor.filter((doctor) => {
+        const specialization = (doctor.specialization || '').toLowerCase();
+        const filter = specialtyFilter.toLowerCase();
+        const matchesSpecialty = filter === 'all' || specialization === filter;
+        return matchesSpecialty;
+    });
+
+    const noDoctorsInSpecialization =
+        specialtyFilter &&
+        specialtyFilter.toLowerCase() !== 'all' &&
+        availableDoctor.filter(
+            (doc) => (doc.specialization || '').toLowerCase() === specialtyFilter.toLowerCase()
+        ).length === 0;
 
     // Dynamic patient data
     const patientData = {
@@ -81,58 +123,6 @@ const PatientDashboard = () => {
             type: "In-Person Visit",
             status: "pending",
             avatar: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face"
-        }
-    ];
-
-    const pastAppointments = [
-        {
-            id: 3,
-            doctor: "Dr. Lisa Thompson",
-            specialty: "Dermatologist",
-            date: "2025-06-20",
-            time: "3:00 PM",
-            type: "Video Consultation",
-            status: "completed",
-            notes: "Prescribed topical treatment for eczema",
-            avatar: "https://images.unsplash.com/photo-1594824596414-779a7c1c8bb6?w=100&h=100&fit=crop&crop=face"
-        },
-        {
-            id: 4,
-            doctor: "Dr. James Wilson",
-            specialty: "Orthopedist",
-            date: "2025-06-15",
-            time: "11:15 AM",
-            type: "In-Person Visit",
-            status: "completed",
-            notes: "X-ray results normal, continue physical therapy",
-            avatar: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=100&h=100&fit=crop&crop=face"
-        }
-    ];
-
-    const medicalRecords = [
-        {
-            id: 1,
-            title: "Blood Test Results",
-            date: "2025-06-22",
-            doctor: "Dr. Emily Chen",
-            type: "Lab Report",
-            status: "Normal"
-        },
-        {
-            id: 2,
-            title: "Chest X-Ray",
-            date: "2025-06-15",
-            doctor: "Dr. James Wilson",
-            type: "Imaging",
-            status: "Normal"
-        },
-        {
-            id: 3,
-            title: "Annual Physical Exam",
-            date: "2025-06-10",
-            doctor: "Dr. Michael Rodriguez",
-            type: "Examination",
-            status: "Complete"
         }
     ];
 
@@ -200,36 +190,6 @@ const PatientDashboard = () => {
         }
     };
 
-    const availableDoctors = [
-        {
-            id: 1,
-            name: "Dr. Emily Chen",
-            specialty: "Cardiologist",
-            rating: 4.9,
-            experience: "12 years",
-            nextAvailable: "Today 2:00 PM",
-            avatar: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=100&h=100&fit=crop&crop=face"
-        },
-        {
-            id: 2,
-            name: "Dr. Michael Rodriguez",
-            specialty: "General Practitioner",
-            rating: 4.8,
-            experience: "8 years",
-            nextAvailable: "Tomorrow 9:00 AM",
-            avatar: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face"
-        },
-        {
-            id: 3,
-            name: "Dr. Lisa Thompson",
-            specialty: "Dermatologist",
-            rating: 4.7,
-            experience: "10 years",
-            nextAvailable: "Today 4:30 PM",
-            avatar: "https://images.unsplash.com/photo-1594824596414-779a7c1c8bb6?w=100&h=100&fit=crop&crop=face"
-        }
-    ];
-
     const renderOverview = () => (
         <div className="row g-3 g-md-4">
             {/* Quick Stats */}
@@ -259,33 +219,6 @@ const PatientDashboard = () => {
                                 </div>
                                 <h3 className="mb-1 fw-bold">{upcomingAppointments.length}</h3>
                                 <p className="mb-0 small opacity-75">Upcoming Appointments</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="col-6 col-lg-3">
-                        <div className="card stat-card text-white h-100" style={{
-                            background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-                            border: 'none',
-                            borderRadius: '15px',
-                            boxShadow: '0 8px 25px rgba(17, 153, 142, 0.3)',
-                            transform: 'translateY(0)',
-                            transition: 'all 0.3s ease'
-                        }}>
-                            <div className="card-body text-center p-3">
-                                <div className="mb-3" style={{
-                                    background: 'rgba(255,255,255,0.2)',
-                                    borderRadius: '50%',
-                                    width: '60px',
-                                    height: '60px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    margin: '0 auto'
-                                }}>
-                                    <i className="fas fa-file-medical" style={{ fontSize: '1.5rem' }}></i>
-                                </div>
-                                <h3 className="mb-1 fw-bold">{medicalRecords.length}</h3>
-                                <p className="mb-0 small opacity-75">Medical Records</p>
                             </div>
                         </div>
                     </div>
@@ -338,7 +271,6 @@ const PatientDashboard = () => {
                                 }}>
                                     <i className="fas fa-history" style={{ fontSize: '1.5rem' }}></i>
                                 </div>
-                                <h3 className="mb-1 fw-bold">{pastAppointments.length}</h3>
                                 <p className="mb-0 small opacity-75">Past Consultations</p>
                             </div>
                         </div>
@@ -515,23 +447,28 @@ const PatientDashboard = () => {
                 <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-4">
                     <h4 className="mb-0">Available Doctors</h4>
                     <div className="d-flex gap-2">
-                        <input 
-                            type="text" 
-                            className="form-control" 
-                            placeholder="Search doctors..." 
-                            style={{ borderRadius: '10px', maxWidth: '200px' }}
-                        />
-                        <select className="form-select" style={{ borderRadius: '10px', maxWidth: '150px' }}>
-                            <option>All Specialties</option>
+                        <select className="form-select" 
+                            value={specialtyFilter}
+                            onChange={(e)=>setSpecialtyFilter(e.target.value)}
+                            style={{ borderRadius: '10px', maxWidth: '150px' }}>
+                            <option value="all">All Specialties</option>
                             <option>Cardiology</option>
                             <option>Dermatology</option>
-                            <option>General Practice</option>
+                            <option>Neurology</option>
+                            <option>Orthopedics</option>
+                            <option>Pediatrics</option>
+                            <option>Psychiatry</option>
+                            <option>General Medicine</option>
+                            <option>Gynecology</option>
+                            <option>Ophthalmology</option>
+                            <option>ENT</option>
                         </select>
                     </div>
                 </div>
             </div>
 
-            {availableDoctors.map(doctor => (
+            {filteredDoctors.length > 0 ? (
+            filteredDoctors.map(doctor => (
                 <div key={doctor.id} className="col-12 col-lg-6">
                     <div className="card h-100" style={{
                         border: 'none',
@@ -540,359 +477,77 @@ const PatientDashboard = () => {
                         background: 'white',
                         transition: 'all 0.3s ease'
                     }}>
-                        <div className="card-body p-4">
-                            <div className="d-flex align-items-start gap-3">
-                                <img
-                                    src={doctor.avatar}
-                                    alt={doctor.name}
-                                    className="rounded-circle"
-                                    style={{ 
-                                        width: '80px', 
-                                        height: '80px', 
-                                        objectFit: 'cover',
-                                        boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
-                                    }}
-                                />
-                                <div className="flex-grow-1">
-                                    <h5 className="mb-1 fw-bold">{doctor.name}</h5>
-                                    <p className="text-muted mb-2">{doctor.specialty}</p>
-                                    <div className="d-flex align-items-center mb-2">
-                                        <span className="text-warning me-1">
-                                            {'★'.repeat(Math.floor(doctor.rating))}
-                                        </span>
-                                        <span className="small text-muted">{doctor.rating} • {doctor.experience}</span>
-                                    </div>
-                                    <p className="small text-success mb-3">
-                                        <i className="fas fa-clock me-1"></i>
-                                        Next available: {doctor.nextAvailable}
-                                    </p>
-                                    <div className="d-flex gap-2">
-                                        <button onClick={() => navigate("/book-appointment/doc002")} className="btn btn-sm text-white" style={{
-                                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                            border: 'none',
-                                            borderRadius: '8px',
-                                            padding: '8px 16px'
-                                        }}>
-                                            <i className="fas fa-calendar me-1"></i>Book Appointment
-                                        </button>
-                                        <button className="btn btn-outline-secondary btn-sm" style={{
-                                            borderRadius: '8px',
-                                            padding: '8px 16px'
-                                        }}>
-                                            <i className="fas fa-user me-1"></i>View Profile
-                                        </button>
-                                    </div>
-                                </div>
+                    <div className="card-body p-4">
+                        <div className="d-flex align-items-start gap-3">
+                        <img
+                            src={doctor.profilePhoto || "/default-avatar.png"}
+                            alt={doctor.name}
+                            className="rounded-circle"
+                            style={{ 
+                                width: '80px', 
+                                height: '80px', 
+                                objectFit: 'cover',
+                                boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                            }}
+                        />
+                        <div className="flex-grow-1">
+                            <h5 className="mb-1 fw-bold">{doctor.name}</h5>
+                            <p className="text-muted mb-2">{doctor.specialization}</p>
+                            
+                            {doctor.rating ? (
+                            <div className="d-flex align-items-center mb-2">
+                                <span className="text-warning me-1">
+                                {'★'.repeat(Math.floor(doctor.rating))}
+                                </span>
+                                <span className="small text-muted">{doctor.rating} • {doctor.experience}</span>
+                            </div>
+                            ) : (
+                            <p className="small text-muted mb-2">{doctor.experience} years experience</p>
+                            )}
+                            
+                            {/* Remove or replace this if no nextAvailable info */}
+                            {/* <p className="small text-success mb-3">
+                                <i className="fas fa-clock me-1"></i>
+                                Next available: {doctor.nextAvailable || 'N/A'}
+                            </p> */}
+
+                            <div className="d-flex gap-2">
+                            <button
+                                onClick={() => navigate(`/book-appointment/${doctor._id}`, { state: { doctorName: doctor.name } })}
+                                className="btn btn-sm text-white"
+                                style={{
+                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '8px 16px'
+                                }}
+                                >
+                                <i className="fas fa-calendar me-1"></i>Book Appointment
+                                </button>
+
+                            <button
+                                className="btn btn-outline-secondary btn-sm"
+                                style={{ borderRadius: '8px', padding: '8px 16px' }}
+                                onClick={() => handleShowProfile(doctor)}
+                            >
+                                <i className="fas fa-user me-1"></i> View Profile
+                            </button>
+
                             </div>
                         </div>
+                        </div>
+                    </div>
                     </div>
                 </div>
-            ))}
+                )
+            )
+            ) : noDoctorsInSpecialization ? (
+                <p className='text-center mt-4'>No doctors found with this specialization.</p>
+            ):(<p className='text-center mt-4'>No matching doctors found.</p>)
+        }
+
         </div>
     );
-
-    const renderAppointments = () => (
-        <div className="row g-3 g-md-4">
-            <div className="col-12">
-                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-4">
-                    <h4 className="mb-0">My Appointments</h4>
-                    <button className="btn text-white fw-semibold" style={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        border: 'none',
-                        borderRadius: '12px',
-                        padding: '12px 20px'
-                    }}>
-                        <i className="fas fa-plus me-2"></i>Book New Appointment
-                    </button>
-                </div>
-            </div>
-
-            {/* Upcoming Appointments */}
-            <div className="col-12">
-                <div className="card" style={{
-                    border: 'none',
-                    borderRadius: '20px',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-                }}>
-                    <div className="card-header" style={{
-                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                        borderRadius: '20px 20px 0 0',
-                        border: 'none',
-                        padding: '1.5rem'
-                    }}>
-                        <h5 className="mb-0 fw-bold text-dark">Upcoming Appointments</h5>
-                    </div>
-                    <div className="card-body p-4">
-                        <div className="row g-3">
-                            {upcomingAppointments.map(appointment => (
-                                <div key={appointment.id} className="col-12">
-                                    <div className="row align-items-center p-3 border rounded g-3" style={{
-                                        borderRadius: '15px',
-                                        border: '1px solid #e9ecef',
-                                        background: '#fafbfc'
-                                    }}>
-                                        <div className="col-12 col-sm-2 text-center">
-                                            <img
-                                                src={appointment.avatar}
-                                                alt={appointment.doctor}
-                                                className="rounded-circle"
-                                                style={{ 
-                                                    width: '80px', 
-                                                    height: '80px', 
-                                                    objectFit: 'cover',
-                                                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-12 col-sm-6">
-                                            <h5 className="mb-1 fw-bold">{appointment.doctor}</h5>
-                                            <p className="mb-1 text-muted">{appointment.specialty}</p>
-                                            <p className="mb-1 small">
-                                                <i className="fas fa-calendar me-2 text-primary"></i>
-                                                {appointment.date} at {appointment.time}
-                                            </p>
-                                            <span className="badge text-white" style={{
-                                                background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                                                borderRadius: '20px'
-                                            }}>{appointment.type}</span>
-                                        </div>
-                                        <div className="col-12 col-sm-2 text-center">
-                                            <span className={`badge px-3 py-1 text-white`} style={{
-                                                background: appointment.status === 'confirmed' ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' : 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-                                                borderRadius: '20px'
-                                            }}>
-                                                {appointment.status}
-                                            </span>
-                                        </div>
-                                        <div className="col-12 col-sm-2">
-                                            <div className="d-grid gap-1">
-                                                <button className="btn btn-sm text-white" style={{
-                                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                    border: 'none',
-                                                    borderRadius: '8px'
-                                                }}>
-                                                    <i className="fas fa-video me-1"></i>Join
-                                                </button>
-                                                <button className="btn btn-outline-secondary btn-sm" style={{ borderRadius: '8px' }}>
-                                                    <i className="fas fa-edit me-1"></i>Reschedule
-                                                </button>
-                                                <button className="btn btn-outline-danger btn-sm" style={{ borderRadius: '8px' }}>
-                                                    <i className="fas fa-times me-1"></i>Cancel
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Past Appointments */}
-            <div className="col-12">
-                <div className="card" style={{
-                    border: 'none',
-                    borderRadius: '20px',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-                }}>
-                    <div className="card-header" style={{
-                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                        borderRadius: '20px 20px 0 0',
-                        border: 'none',
-                        padding: '1.5rem'
-                    }}>
-                        <h5 className="mb-0 fw-bold text-dark">Past Appointments</h5>
-                    </div>
-                    <div className="card-body p-4">
-                        <div className="row g-3">
-                            {pastAppointments.map(appointment => (
-                                <div key={appointment.id} className="col-12">
-                                    <div className="row align-items-center p-3 border rounded g-3" style={{
-                                        borderRadius: '15px',
-                                        border: '1px solid #e9ecef',
-                                        background: '#fafbfc'
-                                    }}>
-                                        <div className="col-12 col-sm-2 text-center">
-                                            <img
-                                                src={appointment.avatar}
-                                                alt={appointment.doctor}
-                                                className="rounded-circle"
-                                                style={{ 
-                                                    width: '80px', 
-                                                    height: '80px', 
-                                                    objectFit: 'cover',
-                                                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-12 col-sm-6">
-                                            <h5 className="mb-1 fw-bold">{appointment.doctor}</h5>
-                                            <p className="mb-1 text-muted">{appointment.specialty}</p>
-                                            <p className="mb-1 small">
-                                                <i className="fas fa-calendar me-2 text-primary"></i>
-                                                {appointment.date} at {appointment.time}
-                                            </p>
-                                            <span className="badge text-white" style={{
-                                                background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                                                borderRadius: '20px'
-                                            }}>{appointment.type}</span>
-                                            {appointment.notes && (
-                                                <p className="mt-2 mb-0 small">
-                                                    <strong>Notes:</strong> {appointment.notes}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="col-12 col-sm-2 text-center">
-                                            <span className="badge text-white px-3 py-1" style={{
-                                                background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-                                                borderRadius: '20px'
-                                            }}>{appointment.status}</span>
-                                        </div>
-                                        <div className="col-12 col-sm-2">
-                                            <button className="btn btn-outline-primary btn-sm w-100" style={{ borderRadius: '8px' }}>
-                                                <i className="fas fa-download me-1"></i>Download Report
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-
-    const renderMedicalRecords = () => (
-        <div className="row g-3 g-md-4">
-            <div className="col-12">
-                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-4">
-                    <h4 className="mb-0">Medical Records</h4>
-                    <button className="btn text-white fw-semibold" style={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        border: 'none',
-                        borderRadius: '12px',
-                        padding: '12px 20px'
-                    }}>
-                        <i className="fas fa-upload me-2"></i>Upload Record
-                    </button>
-                </div>
-            </div>
-
-            {/* Health Profile */}
-            <div className="col-12 col-lg-4">
-                <div className="card h-100" style={{
-                    border: 'none',
-                    borderRadius: '20px',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-                }}>
-                    <div className="card-header" style={{
-                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                        borderRadius: '20px 20px 0 0',
-                        border: 'none',
-                        padding: '1.5rem'
-                    }}>
-                        <h5 className="mb-0 fw-bold text-dark">Health Profile</h5>
-                    </div>
-                    <div className="card-body p-4">
-                        <div className="mb-3">
-                            <label className="form-label text-muted fw-semibold">Blood Type</label>
-                            <p className="mb-0 fw-bold">{patientData.bloodType}</p>
-                        </div>
-                        <div className="mb-3">
-                            <label className="form-label text-muted fw-semibold">Date of Birth</label>
-                            <p className="mb-0 fw-bold">{patientData.dateOfBirth}</p>
-                        </div>
-                        <div className="mb-3">
-                            <label className="form-label text-muted fw-semibold">Emergency Contact</label>
-                            <p className="mb-0 fw-bold">{patientData.emergencyContact}</p>
-                        </div>
-                        <button className="btn w-100 fw-semibold" style={{
-                            background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
-                            border: '1px solid rgba(102, 126, 234, 0.3)',
-                            borderRadius: '12px',
-                            color: '#667eea'
-                        }}>
-                            <i className="fas fa-edit me-2"></i>Edit Profile
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Medical Records List */}
-            <div className="col-12 col-lg-8">
-                <div className="card h-100" style={{
-                    border: 'none',
-                    borderRadius: '20px',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-                }}>
-                    <div className="card-header" style={{
-                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                        borderRadius: '20px 20px 0 0',
-                        border: 'none',
-                        padding: '1.5rem'
-                    }}>
-                        <h5 className="mb-0 fw-bold text-dark">Records & Documents</h5>
-                    </div>
-                    <div className="card-body p-4">
-                        <div className="row g-3">
-                            {medicalRecords.map(record => (
-                                <div key={record.id} className="col-12">
-                                    <div className="d-flex align-items-center p-3 border rounded" style={{
-                                        borderRadius: '15px',
-                                        border: '1px solid #e9ecef',
-                                        background: '#fafbfc',
-                                        transition: 'all 0.3s ease'
-                                    }}>
-                                        <div className="me-3">
-                                            <div className="d-flex align-items-center justify-content-center" style={{
-                                                width: '50px',
-                                                height: '50px',
-                                                borderRadius: '12px',
-                                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                                            }}>
-                                                <i className={`fas ${
-                                                    record.type === 'Lab Report' ? 'fa-flask' :
-                                                    record.type === 'Imaging' ? 'fa-x-ray' : 'fa-file-medical'
-                                                } text-white`}></i>
-                                            </div>
-                                        </div>
-                                        <div className="flex-grow-1">
-                                            <h6 className="mb-1 fw-bold">{record.title}</h6>
-                                            <p className="mb-1 text-muted">{record.doctor}</p>
-                                            <small className="text-muted">
-                                                <i className="fas fa-calendar me-1 text-primary"></i>
-                                                {record.date}
-                                            </small>
-                                        </div>
-                                        <div className="text-end">
-                                            <span className={`badge px-3 py-1 text-white mb-2`} style={{
-                                                background: record.status === 'Normal' || record.status === 'Complete' ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' : 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-                                                borderRadius: '20px'
-                                            }}>
-                                                {record.status}
-                                            </span>
-                                            <br />
-                                            <div className="btn-group-sm">
-                                                <button className="btn btn-outline-primary btn-sm me-1" style={{ borderRadius: '8px' }}>
-                                                    <i className="fas fa-eye"></i>
-                                                </button>
-                                                <button className="btn btn-outline-secondary btn-sm" style={{ borderRadius: '8px' }}>
-                                                    <i className="fas fa-download"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-
     const renderMessages = () => (
         <div className="row g-3 g-md-4">
             <div className="col-12">
@@ -1156,7 +811,6 @@ const PatientDashboard = () => {
             <div className="col-12">
                 <div className="d-flex justify-content-between align-items-center">
                     <h4>My Profile</h4>
-                    <LogOut />
                 </div>
             </div>
             <div className="col-12">
@@ -1169,8 +823,6 @@ const PatientDashboard = () => {
         switch(activeTab) {
             case 'available': return renderAvailableDoctors();
             case 'overview': return renderOverview();
-            case 'appointments': return renderAppointments();
-            case 'records': return renderMedicalRecords();
             case 'messages': return renderMessages();
             case 'profile': return renderProfile();
             default: return renderOverview();
@@ -1182,50 +834,6 @@ const PatientDashboard = () => {
             background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
             minHeight: '100vh'
         }}>
-            {/* Include Bootstrap Icons */}
-            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-            
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                    .card:hover {
-                        transform: translateY(-2px);
-                        transition: all 0.3s ease;
-                    }
-                    
-                    .stat-card:hover {
-                        transform: translateY(-5px);
-                        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4) !important;
-                    }
-                    
-                    .nav-link:hover {
-                        transform: translateY(-1px) !important;
-                    }
-                    
-                    .btn:hover {
-                        transform: translateY(-1px);
-                        transition: all 0.3s ease;
-                    }
-                    
-                    .appointment-card:hover {
-                        background: #f8f9fa !important;
-                        border-color: #667eea !important;
-                        transform: translateX(5px);
-                    }
-                    
-                    .message-item:hover {
-                        background: rgba(102, 126, 234, 0.1) !important;
-                        border-color: rgba(102, 126, 234, 0.2) !important;
-                    }
-                    
-                    @media (max-width: 768px) {
-                        .nav-link {
-                            font-size: 0.85rem;
-                            padding: 8px 12px !important;
-                        }
-                    }
-                `
-            }} />
 
             {/* Dashboard Header */}
             <header className="sticky-top" style={{ 
@@ -1258,24 +866,8 @@ const PatientDashboard = () => {
                         </div>
                         <div className="col-12 col-lg-4">
                             <div className="d-flex flex-column flex-sm-row gap-2 justify-content-lg-end">
-                                <button className="btn text-white flex-fill flex-sm-grow-0" style={{
-                                    background: 'rgba(255,255,255,0.2)',
-                                    border: '1px solid rgba(255,255,255,0.3)',
-                                    backdropFilter: 'blur(10px)',
-                                    borderRadius: '10px'
-                                }}>
-                                    <i className="fas fa-plus me-2"></i>
-                                    <span className="d-none d-sm-inline">Book </span>Appointment
-                                </button>
-                                <button className="btn text-white flex-fill flex-sm-grow-0" style={{
-                                    background: 'rgba(255,255,255,0.15)',
-                                    border: '1px solid rgba(255,255,255,0.3)',
-                                    backdropFilter: 'blur(10px)',
-                                    borderRadius: '10px'
-                                }}>
-                                    <i className="fas fa-video me-2"></i>
-                                    <span className="d-none d-sm-inline">Join </span>Call
-                                </button>
+                                <LogOut/>
+                                
                             </div>
                         </div>
                     </div>
@@ -1290,10 +882,8 @@ const PatientDashboard = () => {
                 <div className="container-fluid px-3 px-md-4">
                     <div className="nav nav-pills d-flex overflow-auto py-3" style={{ minHeight: '4rem' }}>
                         {[
-                            { id: 'available', icon: 'fa-user-md', label: 'Available Doctors', color: '#667eea' },
                             { id: 'overview', icon: 'fa-tachometer-alt', label: 'Overview', color: '#f093fb' },
-                            { id: 'appointments', icon: 'fa-calendar-check', label: 'Appointments', color: '#4facfe' },
-                            { id: 'records', icon: 'fa-file-medical', label: 'Medical Records', color: '#43e97b' },
+                            { id: 'available', icon: 'fa-user-md', label: 'Available Doctors', color: '#667eea' },
                             { id: 'messages', icon: 'fa-comments', label: 'Messages', badge: getUnreadCount(), color: '#fa709a' },
                             { id: 'profile', icon: 'fa-user', label: 'Profile', color: '#a8edea' }
                         ].map(tab => (
@@ -1365,6 +955,31 @@ const PatientDashboard = () => {
             <main className="container-fluid px-3 px-md-4 py-4">
                 {renderTabContent()}
             </main>
+            {selectedDoctor && (
+            <Modal show={showProfileModal} onHide={handleCloseProfile} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>
+                        Dr. {selectedDoctor.name}
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <p><strong>Specialization:</strong> {selectedDoctor.specialization}</p>
+                    <p><strong>Email:</strong> {selectedDoctor.email || 'N/A'}</p>
+                    <p><strong>Experience:</strong> {selectedDoctor.experience || 'N/A'} years</p>
+                    <p><strong>Qualification:</strong> {selectedDoctor.qualification || 'N/A'}</p>
+
+                    
+
+                    {/* Add more doctor fields here if needed */}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={handleCloseProfile}>
+                        Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+        )}
+
         </div>
     );
 };
