@@ -1,6 +1,6 @@
 import React from 'react';
 
-const LogOut = ({ buttonText = "Logout", buttonStyle = "btn-danger", showIcon = true }) => {
+const LogOut = ({ buttonText = "Logout", buttonStyle = "", showIcon = true }) => {
     const handleLogout = () => {
 
         localStorage.removeItem('token');
@@ -15,7 +15,8 @@ const LogOut = ({ buttonText = "Logout", buttonStyle = "btn-danger", showIcon = 
             onClick={handleLogout}
             style={{
                 borderRadius: '12px',
-                padding: '8px 16px'
+                padding: '8px 16px',
+                backgroundColor: "#b3a9caff",
             }}
         >
             {showIcon && <i className="fas fa-sign-out-alt me-2"></i>}

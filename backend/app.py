@@ -169,8 +169,6 @@ def login():
         "email": user.get("email") 
     })
 
-
-
 def send_email_with_ics(name, recipient_email, doctor_name, date_str, time_str):
     import smtplib
     from email.mime.multipart import MIMEMultipart
@@ -478,6 +476,40 @@ def get_patient_profile(current_user):
     
     profile["_id"] = str(profile["_id"])
     return jsonify(profile)
+
+@app.route("/api/doctors", methods=["GET"])
+@token_required
+def get_doctors(current_user):
+    # Allow only patients to access this endpoint (optional)
+    if current_user.get("role") != "patient":
+        return jsonify({"message": "Access denied"}), 403
+    
+    doctors_cursor = doctor_profiles_collection.find(
+        {},
+        {
+            "_id": 1,
+            "firstName": 1,
+            "lastName": 1,
+            "specialization": 1,
+            "experience": 1,
+            "profilePhoto": 1,
+            "email": 1,
+            "qualification": 1
+        }
+    )
+
+    doctors = []
+    for doc in doctors_cursor:
+        doctors.append({
+            "id": str(doc["_id"]),
+            "name": f"{doc.get('firstName', '')} {doc.get('lastName', '')}".strip(),
+            "specialization": doc.get("specialization", ""),
+            "experience": doc.get("experience", ""),
+            "profilePhoto": f"http://localhost:5000/api/files/{doc['profilePhoto']}" if doc.get("profilePhoto") else None,
+            "email": doc.get("email",""),
+            "qualification": doc.get("qualification","")
+        })
+    return jsonify(doctors)
 
 @app.route('/api/conversations', methods=['GET'])
 @token_required
