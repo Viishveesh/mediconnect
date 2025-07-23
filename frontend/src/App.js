@@ -4,6 +4,8 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 // import pages 
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
+import RequestLink from './pages/auth/RequestLink';
+import ResetPassword from './pages/auth/ResetPassword';
 import LandingPage from './pages/LandingPage';
 import PatientDashboard from './pages/patient/PatientDashboard';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
@@ -15,17 +17,16 @@ import BrowseDoctors from './pages/patient/BrowseDoctors';
 import DoctorProfile from './pages/patient/DoctorProfile';
 import BookAppointment from './pages/patient/BookAppointment';
 
-import Navbar from './components/Navbar';
-import Footer from './components/Footer';
-
 function App() {
   return(
      <Router>
-      <div className="App" style={{ paddingTop: '70px' }}>
+      <div className="App">
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/request-reset" element={<RequestLink />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/signup" element={<Signup />} />
           
           {/* Doctor-specific Protected Routes */}
@@ -74,7 +75,7 @@ function App() {
             } 
           />
         </Routes>
-        <Footer />
+        {/* <Footer /> */}
       </div>
     </Router>
   )
