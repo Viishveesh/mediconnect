@@ -19,6 +19,7 @@ from PIL import Image
 import io
 from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Mail, Message
+from routes.doctor_schedule_settings import schedule_settings
 from routes.doctor_schedule import doctor_schedule
 from routes.google_calendar import google_calendar
 
@@ -138,6 +139,7 @@ users_collection = db.users
 # Register custom blueprints
 app.register_blueprint(doctor_schedule)
 app.register_blueprint(google_calendar)
+app.register_blueprint(schedule_settings)
 
 # Signup route
 @app.route("/api/signup", methods=["POST"])

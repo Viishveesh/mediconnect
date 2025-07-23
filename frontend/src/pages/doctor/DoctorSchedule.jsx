@@ -8,6 +8,7 @@ import Modal from "react-modal";
 import "../../assets/css/styles.css";
 
 const DoctorSchedule = (props) => {
+  const { doctorId: propDoctorId, settings } = props;
   const params = useParams();
   const doctorId = props.doctorId || params.doctorId;
   const jwtToken = localStorage.getItem("token");
@@ -66,6 +67,15 @@ const DoctorSchedule = (props) => {
   };
 
   const handleSlotSelect = (info) => {
+    const dayOfWeek = new Date(info.startStr).toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
+    if (!settings.workingDays.includes(dayOfWeek)) {
+      alert(`You can't add slots on ${dayOfWeek}`);
+      return;
+    }
+
     const start = formatToLocalDateTime(info.startStr);
     const end = formatToLocalDateTime(info.endStr);
 
@@ -224,14 +234,24 @@ const DoctorSchedule = (props) => {
             initialView="timeGridWeek"
             events={events}
             height="100%"
-            slotMinTime="07:00:00"
-            slotMaxTime="21:00:00"
+            slotMinTime={settings?.workingHours?.start || "07:00:00"}
+            slotMaxTime={settings?.workingHours?.end || "21:00:00"}
             allDaySlot={false}
             selectable={true}
             eventOverlap={false}
             timeZone="local"
             select={handleSlotSelect}
             eventClick={handleEventClick}
+            dayCellDidMount={(arg) => {
+            const weekday = new Date(arg.date).toLocaleDateString("en-US", {
+              weekday: "long",
+            });
+
+            if (!settings.workingDays.includes(weekday)) {
+              arg.el.style.backgroundColor = "#dededeff"; // light gray
+              arg.el.style.opacity = "0.6"; // optional dim effect
+            }
+          }}
           />
         </div>
       </div>
