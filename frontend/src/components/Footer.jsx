@@ -8,7 +8,7 @@ export default function Footer () {
   };
 
   return (
-    <footer id="contact" className="bg-dark text-light py-5">
+    <footer id="footer" className="bg-dark text-light py-5">
       <div className="container">
         <div className="row g-4">
           <div className="col-lg-4">

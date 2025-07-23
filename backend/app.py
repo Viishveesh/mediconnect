@@ -17,6 +17,8 @@ import uuid
 from werkzeug.utils import secure_filename
 from PIL import Image
 import io
+from itsdangerous import URLSafeTimedSerializer
+from flask_mail import Mail, Message
 
 
 load_dotenv()
@@ -26,6 +28,18 @@ CORS(app)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
+
+# Add this to your Flask app config
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # Or your SMTP provider
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.getenv('SENDER_EMAIL')
+app.config['MAIL_PASSWORD'] = os.getenv('SENDER_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('SENDER_EMAIL')
+
+mail = Mail(app)
 
 # Allowed image extensions only
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -170,6 +184,54 @@ def login():
         "name": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip(),
         "email": user.get("email") 
     })
+
+@app.route("/api/request-reset", methods=["POST"])
+def request_password_reset():
+    data = request.json
+    email = data.get("email")
+
+    user = users_collection.find_one({"email": email})
+    if not user:
+        return jsonify({"message": "No account with that email."}), 404
+
+    token = serializer.dumps(email, salt="password-reset-salt")
+    reset_link = f"http://localhost:3000/reset-password?token={token}"
+
+    try:
+        msg = Message("Password Reset Request", recipients=[email])
+        msg.body = f"Hi {user.get('firstName', '')},\n\nTo reset your password, click the following link:\n\n{reset_link}\n\nIf you did not request this, please ignore this email.\n\nThanks!"
+        mail.send(msg)
+    except Exception as e:
+        print(f"Email sending failed: {e}")
+        return jsonify({"message": "Failed to send reset email."}), 500
+
+    return jsonify({"message": "Password reset link sent to your email."})
+
+@app.route("/api/reset-password", methods=["POST"])
+def reset_password():
+    data = request.json
+    token = data.get("token")
+    new_password = data.get("newPassword")
+
+    print(token)
+    print(new_password)
+
+    try:
+        email = serializer.loads(token, salt="password-reset-salt", max_age=3600)
+    except Exception as e:
+        return jsonify({"message": "Invalid or expired token."}), 400
+
+    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+
+    result = users_collection.update_one(
+        {"email": email},
+        {"$set": {"password": hashed_password}}
+    )
+
+    if result.modified_count == 1:
+        return jsonify({"message": "Password updated successfully."})
+    else:
+        return jsonify({"message": "Something went wrong."}), 500
 
 def send_email_with_ics(name, recipient_email, doctor_name, date_str, time_str):
     import smtplib

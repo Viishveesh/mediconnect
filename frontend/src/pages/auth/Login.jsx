@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import axios from "axios";
+import Navbar from '../../components/Navbar';
+import Footer from '../../components/Footer';
 import { useNavigate } from "react-router-dom";
+
 
 const Login = ({ toggleForm }) => {
   const navigate = useNavigate();
@@ -46,6 +49,8 @@ const Login = ({ toggleForm }) => {
 
 
   return (
+    <>
+    <Navbar />
     <div className="auth-container">
       <div className="floating-shapes">
         <div className="shape"></div>
@@ -60,7 +65,7 @@ const Login = ({ toggleForm }) => {
         </div>
 
         <div className="auth-body">
-          {/* ✅ Message box */}
+          {/* Message box */}
           {message.text && (
             <div
               className={`alert ${message.type === 'error' ? 'alert-danger' : 'alert-success'}`}
@@ -101,6 +106,9 @@ const Login = ({ toggleForm }) => {
           </form>
 
           <div className="toggle-form">
+          <p>
+              Forget Password? Don't worry <a href="/request-reset" onClick={toggleForm} className="toggle-link">Reset Here</a>
+            </p>
             <p>
               Don’t have an account? <a href="/signup" onClick={toggleForm} className="toggle-link">Sign up here</a>
             </p>
@@ -108,6 +116,8 @@ const Login = ({ toggleForm }) => {
         </div>
       </div>
     </div>
+    <Footer />
+    </>
   );
 };
 
