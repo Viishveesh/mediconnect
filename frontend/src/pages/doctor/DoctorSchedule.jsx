@@ -246,12 +246,13 @@ const DoctorSchedule = (props) => {
             const weekday = new Date(arg.date).toLocaleDateString("en-US", {
               weekday: "long",
             });
-
-            if (!settings.workingDays.includes(weekday)) {
-              arg.el.style.backgroundColor = "#dededeff"; // light gray
-              arg.el.style.opacity = "0.6"; // optional dim effect
-            }
-          }}
+              if (!settings.workingDays.includes(weekday)) {
+                arg.el.style.backgroundColor = "#dededeff"; // light gray
+                arg.el.style.opacity = "0.6"; // optional dim effect
+              }
+            }}
+            slotDuration={`00:${settings.consultationDuration}:00`}
+            slotLabelInterval={`00:${settings.consultationDuration}:00`} 
           />
         </div>
       </div>
