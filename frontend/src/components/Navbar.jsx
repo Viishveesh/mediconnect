@@ -40,13 +40,13 @@ export default function Navbar () {
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto">
             <li className="nav-item">
-              <a className="nav-link" href="/" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>Home</a>
+              <a className="nav-link" href="/">Home</a>
             </li>
             <li className="nav-item">
-              <a className="nav-link" href="#" onClick={(e) => { e.preventDefault(); scrollToSection('features'); }}>Features</a>
+              <a className="nav-link" href="#">Features</a>
             </li>
             <li className="nav-item">
-              <a className="nav-link" href="#" onClick={(e) => { e.preventDefault(); scrollToSection('contact'); }}>Contact</a>
+              <a className="nav-link" href="#">Contact</a>
             </li>
             <li className="nav-item">
               <a className="nav-link" href="/login" >Login</a>

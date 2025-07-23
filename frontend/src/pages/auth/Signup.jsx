@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-
+import Navbar from '../../components/Navbar';
+import Footer from '../../components/Footer';
 const Signup = ({ toggleForm }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -58,6 +59,9 @@ const Signup = ({ toggleForm }) => {
 
 
   return (
+    <>
+      <Navbar />
+    
     <div className="auth-container">
       <div className="floating-shapes">
         <div className="shape"></div>
@@ -139,6 +143,8 @@ const Signup = ({ toggleForm }) => {
         </div>
       </div>
     </div>
+          <Footer />
+    </>
   );
 };
 
