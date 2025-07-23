@@ -1,30 +1,39 @@
 import datetime
 from flask import Blueprint, jsonify, redirect, request, current_app
 from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
 from dotenv import load_dotenv
 import os
 from bson import ObjectId
 import jwt
 from dateutil.parser import isoparse
-
+import base64
+import json
+import traceback
 
 load_dotenv()
-
 google_calendar = Blueprint("google_calendar", __name__)
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 CLIENT_SECRETS_FILE = os.getenv("GOOGLE_CLIENT_SECRET_FILE")
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
-REDIRECT_URI = "http://localhost:5000/google/callback"  # update if deployed
+REDIRECT_URI = "http://localhost:5000/google/callback"
 
 
-# Login
+# Login 
 @google_calendar.route("/google/login")
 def google_login():
-    token = request.args.get("token")  # JWT passed from frontend
-
+    token = request.args.get("token")
     if not token:
         return jsonify({"error": "Missing JWT token"}), 400
+
+    decoded = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=["HS256"])
+    doctor_id = decoded.get("doctorId")
+
+    state_payload = base64.urlsafe_b64encode(json.dumps({
+        "token": token,
+        "doctorId": doctor_id
+    }).encode()).decode()
 
     flow = Flow.from_client_secrets_file(
         CLIENT_SECRETS_FILE,
@@ -32,12 +41,11 @@ def google_login():
         redirect_uri=REDIRECT_URI,
     )
 
-    # Use JWT token directly in OAuth `state` param
-    authorization_url, state = flow.authorization_url(
+    authorization_url, _ = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
         prompt="consent",
-        state=token  # pass the JWT as state
+        state=state_payload
     )
 
     return redirect(authorization_url)
@@ -46,37 +54,37 @@ def google_login():
 # Callback
 @google_calendar.route("/google/callback")
 def google_callback():
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI,
-        state=request.args.get("state")  # pull JWT from URL param
-    )
-    flow.fetch_token(authorization_response=request.url)
-
-    credentials = flow.credentials
-    token_data = credentials_to_dict(credentials)
-
     try:
-        jwt_token = request.args.get("state")
-        decoded = jwt.decode(jwt_token, current_app.config['SECRET_KEY'], algorithms=["HS256"])
-        doctor_id = decoded.get("doctorId")
+        state_encoded = request.args.get("state")
+        state_json = json.loads(base64.urlsafe_b64decode(state_encoded).decode())
+        jwt_token = state_json["token"]
+        doctor_id = state_json["doctorId"]
 
-        print("Google Callback doctorId from JWT:", doctor_id)
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI,
+            state=state_encoded
+        )
+        flow.fetch_token(authorization_response=request.url)
 
-        # Save token in MongoDB
+        credentials = flow.credentials
+        token_data = credentials_to_dict(credentials)
+
         db = current_app.db
         db.users.update_one(
             {"_id": ObjectId(doctor_id)},
             {"$set": {"googleToken": token_data}}
         )
 
-        return redirect(f"http://localhost:3000/doctor/schedule/{doctor_id}")
+        return redirect(f"http://localhost:3000/oauth-success?token={jwt_token}&doctorId={doctor_id}")
+
     except Exception as e:
+        print("OAuth callback failed:\n", traceback.format_exc())
         return jsonify({"error": str(e)}), 400
 
 
-# Sync Busy
+# Sync calendar
 @google_calendar.route("/google/sync-busy", methods=["GET"])
 def sync_google_busy():
     auth_header = request.headers.get("Authorization")
@@ -90,7 +98,6 @@ def sync_google_busy():
         doctor_id = decoded.get("doctorId")
         print("Syncing busy slots for doctorId:", doctor_id)
 
-
         db = current_app.db
         user = db.users.find_one({"_id": ObjectId(doctor_id)})
 
@@ -100,7 +107,7 @@ def sync_google_busy():
         creds = dict_to_credentials(user["googleToken"])
         service = build('calendar', 'v3', credentials=creds)
 
-        now = datetime.utcnow().isoformat() + 'Z'
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
         events_result = service.events().list(
             calendarId='primary',
             timeMin=now,
@@ -108,10 +115,11 @@ def sync_google_busy():
             orderBy='startTime'
         ).execute()
         events = events_result.get('items', [])
+        print(f"Fetched {len(events)} Google Calendar events")
 
         busy_slots = []
         for event in events:
-            start = event['start'].get('dateTime') or event['start'].get('date')  # for all-day events
+            start = event['start'].get('dateTime') or event['start'].get('date')
             end = event['end'].get('dateTime') or event['end'].get('date')
 
             if not start or not end:
@@ -119,14 +127,14 @@ def sync_google_busy():
 
             busy_slot = {
                 "doctorId": doctor_id,
-                "startTime": isoparse(start),
-                "endTime": isoparse(end),
+                "startTime": isoparse(start).astimezone().isoformat(),
+                "endTime": isoparse(end).astimezone().isoformat(),
                 "reason": event.get("summary", "Google Calendar Event"),
-                "createdAt": datetime.utcnow(),
-                "updatedAt": datetime.utcnow()
+                "createdAt": datetime.datetime.now(datetime.timezone.utc),
+                "updatedAt": datetime.datetime.now(datetime.timezone.utc)
             }
 
-            # Avoid duplicates (optional enhancement)
+            # Avoid duplicates
             if not db.doctor_busy_time.find_one({
                 "doctorId": doctor_id,
                 "startTime": busy_slot["startTime"],
@@ -138,8 +146,11 @@ def sync_google_busy():
             db.doctor_busy_time.insert_many(busy_slots)
 
         return jsonify({"message": f"{len(busy_slots)} busy slots synced."}), 200
+
     except Exception as e:
+        print("Google Sync Failed:\n", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
 
 def credentials_to_dict(creds):
     return {
