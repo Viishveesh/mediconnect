@@ -140,6 +140,52 @@ const DoctorSchedule = (props) => {
 
   return (
     <div className="p-4">
+      <div
+        style={{
+          height: "500px",
+          overflowY: "hidden",
+          display: "flex",
+          justifyContent: "center",
+          paddingBottom: "30px"
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            backgroundColor: "#ffffff",
+            borderRadius: "16px",
+            boxShadow: "inset 0 4px 10px rgba(0,0,0,0.1)",
+            padding: "20px",
+          }}
+        >
+          <FullCalendar
+            plugins={[timeGridPlugin, interactionPlugin]}
+            initialView="timeGridWeek"
+            events={events}
+            height="100%"
+            slotMinTime={settings?.workingHours?.start || "07:00:00"}
+            slotMaxTime={settings?.workingHours?.end || "21:00:00"}
+            allDaySlot={false}
+            selectable={true}
+            eventOverlap={false}
+            timeZone="local"
+            select={handleSlotSelect}
+            eventClick={handleEventClick}
+            dayCellDidMount={(arg) => {
+            const weekday = new Date(arg.date).toLocaleDateString("en-US", {
+              weekday: "long",
+            });
+              if (!settings.workingDays.includes(weekday)) {
+                arg.el.style.backgroundColor = "#dededeff"; // light gray
+                arg.el.style.opacity = "0.6"; // optional dim effect
+              }
+            }}
+            slotDuration={`00:${settings.consultationDuration}:00`}
+            slotLabelInterval={`00:${settings.consultationDuration}:00`} 
+          />
+        </div>
+      </div>
+
       <div>
         <button className="add-slot-btn" onClick={handleAddSlotClick}>
           + Add Slot
@@ -209,52 +255,6 @@ const DoctorSchedule = (props) => {
         >
           Sync Busy Slots
         </button>
-      </div>
-      <div
-        style={{
-          height: "500px",
-          overflowY: "hidden",
-          display: "flex",
-          justifyContent: "center",
-          paddingBottom: "30px",
-          paddingTop: "10px",
-        }}
-      >
-        <div
-          style={{
-            width: "95%",
-            backgroundColor: "#ffffff",
-            borderRadius: "16px",
-            boxShadow: "0 8px 20px rgba(0, 0, 0, 0.1)",
-            padding: "20px",
-          }}
-        >
-          <FullCalendar
-            plugins={[timeGridPlugin, interactionPlugin]}
-            initialView="timeGridWeek"
-            events={events}
-            height="100%"
-            slotMinTime={settings?.workingHours?.start || "07:00:00"}
-            slotMaxTime={settings?.workingHours?.end || "21:00:00"}
-            allDaySlot={false}
-            selectable={true}
-            eventOverlap={false}
-            timeZone="local"
-            select={handleSlotSelect}
-            eventClick={handleEventClick}
-            dayCellDidMount={(arg) => {
-            const weekday = new Date(arg.date).toLocaleDateString("en-US", {
-              weekday: "long",
-            });
-              if (!settings.workingDays.includes(weekday)) {
-                arg.el.style.backgroundColor = "#dededeff"; // light gray
-                arg.el.style.opacity = "0.6"; // optional dim effect
-              }
-            }}
-            slotDuration={`00:${settings.consultationDuration}:00`}
-            slotLabelInterval={`00:${settings.consultationDuration}:00`} 
-          />
-        </div>
       </div>
 
       <Modal
