@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import LogOut from '../auth/LogOut.jsx';
 import DoctorProfile from './DoctorProfile.jsx';
+import DoctorSchedule from './DoctorSchedule.jsx';
 import { useMessages } from '../../hooks/useMessages';
 import { messageService } from '../../services/messageService';
 
@@ -818,56 +819,7 @@ const DoctorDashboard = () => {
                     <div className="card-header">
                         <h5 className="mb-0">Weekly Schedule</h5>
                     </div>
-                    <div className="card-body">
-                        <div className="table-responsive">
-                            <table className="table table-bordered">
-                                <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>Mon</th>
-                                    <th>Tue</th>
-                                    <th>Wed</th>
-                                    <th>Thu</th>
-                                    <th>Fri</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                <tr>
-                                    <td><small>9:00 AM</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-primary text-white text-center"><small>Sarah J.</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-primary text-white text-center"><small>Michael S.</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                </tr>
-                                <tr>
-                                    <td><small>10:00 AM</small></td>
-                                    <td className="bg-primary text-white text-center"><small>Lisa D.</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-primary text-white text-center"><small>Robert W.</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-primary text-white text-center"><small>Emma T.</small></td>
-                                </tr>
-                                <tr>
-                                    <td><small>11:00 AM</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                </tr>
-                                <tr>
-                                    <td><small>2:00 PM</small></td>
-                                    <td className="bg-primary text-white text-center"><small>James W.</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-primary text-white text-center"><small>Anna K.</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                        <DoctorSchedule doctorId={localStorage.getItem("doctorId")} />
                 </div>
             </div>
 

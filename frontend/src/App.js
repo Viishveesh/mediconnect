@@ -10,14 +10,14 @@ import LandingPage from './pages/LandingPage';
 import PatientDashboard from './pages/patient/PatientDashboard';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import ProtectedRoute from './components/routes/ProtectedRoute';
-import DoctorSchedule from './pages/DoctorSchedule';
+import DoctorSchedule from './pages/doctor/DoctorSchedule';
 
 // import css 
 import "./assets/css/styles.css"
 import BrowseDoctors from './pages/patient/BrowseDoctors';
 import DoctorProfile from './pages/patient/DoctorProfile';
 import BookAppointment from './pages/patient/BookAppointment';
-import OAuthSuccess from './pages/0AuthSuccess';
+import OAuthSuccess from './pages/doctor/0AuthSuccess';
 
 function App() {
   return(

@@ -5,10 +5,11 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import axios from "axios";
 import Modal from "react-modal";
-import "../assets/css/styles.css";
+import "../../assets/css/styles.css";
 
-const DoctorSchedule = () => {
-  const { doctorId } = useParams();
+const DoctorSchedule = (props) => {
+  const params = useParams();
+  const doctorId = props.doctorId || params.doctorId;
   const jwtToken = localStorage.getItem("token");
   const [events, setEvents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -129,7 +130,6 @@ const DoctorSchedule = () => {
 
   return (
     <div className="p-4">
-      <h2 className="text-2xl font-semibold mb-2">Doctor Schedule</h2>
       <div>
         <button className="add-slot-btn" onClick={handleAddSlotClick}>
           + Add Slot
@@ -146,15 +146,30 @@ const DoctorSchedule = () => {
               return;
             }
 
-            // Optional: check if route matches token’s doctorId
-            const decoded = JSON.parse(atob(token.split(".")[1]));
-            if (decoded.doctorId !== doctorId) {
-              alert(
-                "Doctor ID mismatch in token! Please logout and login again."
-              );
+            // Decode token to verify doctor ID
+            try {
+              const decoded = JSON.parse(atob(token.split(".")[1]));
+              if (decoded.doctorId !== doctorId) {
+                alert("Doctor ID mismatch in token! Please logout and login again.");
+                return;
+              }
+            } catch (err) {
+              alert("Invalid token. Please login again.");
               return;
             }
 
+            // Check if already connected to Google
+            try {
+              const doctor = JSON.parse(localStorage.getItem("doctor"));
+              if (doctor?.googleToken?.token) {
+                alert("Already connected to Google Calendar.");
+                return;
+              }
+            } catch (err) {
+              // no-op — proceed to login
+            }
+
+            // Redirect to Google login
             window.location.href = `http://localhost:5000/google/login?token=${token}`;
           }}
         >
