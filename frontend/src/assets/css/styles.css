@@ -13,14 +13,20 @@
   font-family: "Ubuntu", sans-serif;
 }
 
+/* navbar starts  */
+nav{
+    border-bottom: 1px solid #3B82F6;
+}
+/* navbar ends  */
+
 /* auth starts  */
 .auth-container {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+width: 100%;
+min-height: 100%;
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 20px;
 }
 
 .auth-card {
@@ -275,6 +281,11 @@
   border-bottom: 2px solid var(--primary);
   color: var(--primary);
   transition: 0.5s;
+}
+
+.request-pwd{
+    margin-top:100px;
+    margin-bottom: 100px;
 }
 /* landing page ends  */
 

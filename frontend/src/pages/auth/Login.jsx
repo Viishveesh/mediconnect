@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import axios from "axios";
+import Navbar from '../../components/Navbar';
+import Footer from '../../components/Footer';
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from 'jwt-decode';
+
 
 const Login = ({ toggleForm }) => {
   const navigate = useNavigate();
@@ -18,11 +21,13 @@ const Login = ({ toggleForm }) => {
 
     try {
       const res = await axios.post("http://localhost:5000/api/login", formData);
-      const { token, role, doctorId } = res.data;
+      const { token, role, doctorId, name, email } = res.data;
       const decoded = jwtDecode(token);
 
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
+      localStorage.setItem("name", name);
+      localStorage.setItem("email", email);
 
       if (role === "doctor" && doctorId) {
         localStorage.setItem("doctorId", decoded.doctorId);
@@ -50,6 +55,8 @@ const Login = ({ toggleForm }) => {
 
 
   return (
+    <>
+    <Navbar />
     <div className="auth-container">
       <div className="floating-shapes">
         <div className="shape"></div>
@@ -64,7 +71,7 @@ const Login = ({ toggleForm }) => {
         </div>
 
         <div className="auth-body">
-          {/* ✅ Message box */}
+          {/* Message box */}
           {message.text && (
             <div
               className={`alert ${message.type === 'error' ? 'alert-danger' : 'alert-success'}`}
@@ -105,6 +112,9 @@ const Login = ({ toggleForm }) => {
           </form>
 
           <div className="toggle-form">
+          <p>
+              Forget Password? Don't worry <a href="/request-reset" onClick={toggleForm} className="toggle-link">Reset Here</a>
+            </p>
             <p>
               Don’t have an account? <a href="/signup" onClick={toggleForm} className="toggle-link">Sign up here</a>
             </p>
@@ -112,6 +122,8 @@ const Login = ({ toggleForm }) => {
         </div>
       </div>
     </div>
+    <Footer />
+    </>
   );
 };
 
