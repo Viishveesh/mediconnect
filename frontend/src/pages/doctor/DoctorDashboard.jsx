@@ -5,11 +5,17 @@ import DoctorProfile from './DoctorProfile.jsx';
 import DoctorSchedule from './DoctorSchedule.jsx';
 import { useMessages } from '../../hooks/useMessages';
 import { messageService } from '../../services/messageService';
+import VideoConsultationModal from '../../components/VideoConsultationModal';
 
 const DoctorDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview');
     const [doctorName, setDoctorName] = useState('Doctor');
     const [doctorProfile, setDoctorProfile] = useState(null);
+
+    // Video consultation states
+    const [showVideoModal, setShowVideoModal] = useState(false);
+    const [selectedAppointmentForVideo, setSelectedAppointmentForVideo] = useState(null);
+
     const {
         conversations,
         activeConversation,
@@ -64,7 +70,7 @@ const DoctorDashboard = () => {
         if (name) {
             setDoctorName(`Dr. ${name}`);
         }
-        
+
         // Fetch doctor profile
         fetchDoctorProfile();
     }, []);
@@ -79,6 +85,17 @@ const DoctorDashboard = () => {
         } catch (error) {
             console.error('Error fetching doctor profile:', error);
         }
+    };
+
+    // Video consultation handlers
+    const handleStartVideoConsultation = (appointment) => {
+        setSelectedAppointmentForVideo(appointment);
+        setShowVideoModal(true);
+    };
+
+    const handleCloseVideoModal = () => {
+        setShowVideoModal(false);
+        setSelectedAppointmentForVideo(null);
     };
 
     // Dynamic doctor data
@@ -200,13 +217,13 @@ const DoctorDashboard = () => {
                 alert('Only images (PNG, JPG, GIF) are allowed');
                 return;
             }
-            
+
             // Check file size (16MB max)
             if (file.size > 16 * 1024 * 1024) {
                 alert('Image size must be less than 16MB');
                 return;
             }
-            
+
             setSelectedImage(file);
         }
     };
@@ -215,11 +232,11 @@ const DoctorDashboard = () => {
     const handleSendMessage = async (e) => {
         e.preventDefault();
         if ((!newMessage.trim() && !selectedImage) || !activeConversation) return;
-        
+
         setUploading(true);
         try {
             let imageAttachment = null;
-            
+
             // Upload image first if selected
             if (selectedImage) {
                 const uploadResult = await uploadImage(selectedImage);
@@ -227,14 +244,14 @@ const DoctorDashboard = () => {
                     imageAttachment = uploadResult;
                 }
             }
-            
+
             const success = await sendMessage(
-                activeConversation.conversation_id, 
-                newMessage, 
+                activeConversation.conversation_id,
+                newMessage,
                 activeConversation.other_user_email,
                 imageAttachment
             );
-            
+
             if (success) {
                 setNewMessage('');
                 setSelectedImage(null);
@@ -406,9 +423,9 @@ const DoctorDashboard = () => {
                                             src={appointment.avatar}
                                             alt={appointment.patient}
                                             className="rounded-circle border border-white"
-                                            style={{ 
-                                                width: '50px', 
-                                                height: '50px', 
+                                            style={{
+                                                width: '50px',
+                                                height: '50px',
                                                 objectFit: 'cover',
                                                 boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
                                             }}
@@ -424,23 +441,35 @@ const DoctorDashboard = () => {
                                         <div className="d-flex flex-column align-items-center gap-2">
                                             <span className={`badge px-3 py-1 ${
                                                 appointment.status === 'upcoming' ? 'text-white' :
-                                                appointment.status === 'in-progress' ? 'text-white' : 'text-white'
+                                                    appointment.status === 'in-progress' ? 'text-white' : 'text-white'
                                             }`} style={{
                                                 background: appointment.status === 'upcoming' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' :
-                                                          appointment.status === 'in-progress' ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' : 
-                                                          'linear-gradient(135deg, #6c757d 0%, #495057 100%)',
+                                                    appointment.status === 'in-progress' ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' :
+                                                        'linear-gradient(135deg, #6c757d 0%, #495057 100%)',
                                                 borderRadius: '20px'
                                             }}>
                                                 {appointment.status}
                                             </span>
-                                            <div className="btn-group-sm">
-                                                <button className="btn btn-sm me-1" style={{
-                                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                    border: 'none',
-                                                    borderRadius: '8px',
-                                                    color: 'white',
-                                                    padding: '6px 12px'
-                                                }}>
+                                            <div className="btn-group-sm d-flex gap-1">
+                                                <button
+                                                    className="btn btn-sm"
+                                                    onClick={() => handleStartVideoConsultation({
+                                                        id: appointment.id,
+                                                        patient_name: appointment.patient,
+                                                        doctor_name: doctorName,
+                                                        date: new Date().toISOString().split('T')[0],
+                                                        time: appointment.time,
+                                                        type: appointment.type
+                                                    })}
+                                                    style={{
+                                                        background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                                                        border: 'none',
+                                                        borderRadius: '8px',
+                                                        color: 'white',
+                                                        padding: '6px 12px'
+                                                    }}
+                                                    title="Start video consultation"
+                                                >
                                                     <i className="fas fa-video"></i>
                                                 </button>
                                                 <button className="btn btn-outline-secondary btn-sm" style={{
@@ -488,6 +517,26 @@ const DoctorDashboard = () => {
                                     }}>
                                         <i className="fas fa-plus me-2"></i>Add Appointment
                                     </button>
+                                    <button
+                                        className="btn fw-semibold"
+                                        onClick={() => handleStartVideoConsultation({
+                                            id: 'emergency',
+                                            patient_name: 'Emergency Consultation',
+                                            doctor_name: doctorName,
+                                            date: new Date().toISOString().split('T')[0],
+                                            time: new Date().toLocaleTimeString(),
+                                            type: 'Emergency Video Consultation'
+                                        })}
+                                        style={{
+                                            background: 'linear-gradient(135deg, rgba(17, 153, 142, 0.1) 0%, rgba(56, 239, 125, 0.1) 100%)',
+                                            border: '1px solid rgba(17, 153, 142, 0.3)',
+                                            borderRadius: '12px',
+                                            padding: '12px 20px',
+                                            color: '#11998e'
+                                        }}
+                                    >
+                                        <i className="fas fa-video me-2"></i>Start Consultation
+                                    </button>
                                     <button className="btn fw-semibold" style={{
                                         background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
                                         border: '1px solid rgba(102, 126, 234, 0.3)',
@@ -505,15 +554,6 @@ const DoctorDashboard = () => {
                                         color: '#667eea'
                                     }}>
                                         <i className="fas fa-user-plus me-2"></i>Add Patient
-                                    </button>
-                                    <button className="btn fw-semibold" style={{
-                                        background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
-                                        border: '1px solid rgba(102, 126, 234, 0.3)',
-                                        borderRadius: '12px',
-                                        padding: '12px 20px',
-                                        color: '#667eea'
-                                    }}>
-                                        <i className="fas fa-chart-line me-2"></i>View Analytics
                                     </button>
                                 </div>
                             </div>
@@ -554,10 +594,10 @@ const DoctorDashboard = () => {
                                             border: conversation.unread_count > 0 ? '1px solid rgba(102, 126, 234, 0.1)' : '1px solid transparent',
                                             cursor: 'pointer'
                                         }}
-                                        onClick={() => {
-                                            selectConversation(conversation);
-                                            setActiveTab('messages');
-                                        }}>
+                                             onClick={() => {
+                                                 selectConversation(conversation);
+                                                 setActiveTab('messages');
+                                             }}>
                                             <div className="rounded-circle me-3 flex-shrink-0 d-flex align-items-center justify-content-center" style={{
                                                 width: '35px',
                                                 height: '35px',
@@ -591,8 +631,8 @@ const DoctorDashboard = () => {
                                         </div>
                                     ))
                                 )}
-                                <button 
-                                    className="btn btn-sm w-100 mt-3 fw-semibold" 
+                                <button
+                                    className="btn btn-sm w-100 mt-3 fw-semibold"
                                     onClick={() => setActiveTab('messages')}
                                     style={{
                                         background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
@@ -652,17 +692,33 @@ const DoctorDashboard = () => {
                                         <div className="col-12 col-sm-2 text-center">
                                             <span className={`badge ${
                                                 appointment.status === 'upcoming' ? 'bg-primary' :
-                                                appointment.status === 'in-progress' ? 'bg-success' : 'bg-secondary'
+                                                    appointment.status === 'in-progress' ? 'bg-success' : 'bg-secondary'
                                             }`}>
                                                 {appointment.status}
                                             </span>
                                         </div>
                                         <div className="col-12 col-sm-2">
                                             <div className="d-grid gap-1">
-                                                <button className="btn btn-primary btn-sm">
-                                                    <i className="fas fa-video me-1"></i>Start
+                                                <button
+                                                    className="btn btn-sm"
+                                                    onClick={() => handleStartVideoConsultation({
+                                                        id: appointment.id,
+                                                        patient_name: appointment.patient,
+                                                        doctor_name: doctorName,
+                                                        date: new Date().toISOString().split('T')[0],
+                                                        time: appointment.time,
+                                                        type: appointment.type
+                                                    })}
+                                                    style={{
+                                                        background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                                                        border: 'none',
+                                                        borderRadius: '8px',
+                                                        color: 'white'
+                                                    }}
+                                                >
+                                                    <i className="fas fa-video me-1"></i>Start Call
                                                 </button>
-                                                <button className="btn btn-outline-secondary btn-sm">
+                                                <button className="btn btn-outline-secondary btn-sm" style={{ borderRadius: '8px' }}>
                                                     <i className="fas fa-edit me-1"></i>Edit
                                                 </button>
                                             </div>
@@ -707,6 +763,25 @@ const DoctorDashboard = () => {
                                         </div>
                                         <div className="col-12 col-sm-4">
                                             <div className="d-grid d-sm-flex gap-2">
+                                                <button
+                                                    className="btn btn-sm flex-fill"
+                                                    onClick={() => handleStartVideoConsultation({
+                                                        id: appointment.id,
+                                                        patient_name: appointment.patient,
+                                                        doctor_name: doctorName,
+                                                        date: appointment.date,
+                                                        time: appointment.time,
+                                                        type: appointment.type
+                                                    })}
+                                                    style={{
+                                                        background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                                                        border: 'none',
+                                                        borderRadius: '8px',
+                                                        color: 'white'
+                                                    }}
+                                                >
+                                                    <i className="fas fa-video me-1"></i>Join
+                                                </button>
                                                 <button className="btn btn-outline-primary btn-sm flex-fill">
                                                     <i className="fas fa-edit me-1"></i>Reschedule
                                                 </button>
@@ -811,7 +886,7 @@ const DoctorDashboard = () => {
                                             <p className="mb-1 small"><strong>Condition:</strong> {patient.condition}</p>
                                             <span className={`badge ${
                                                 patient.status === 'Stable' ? 'bg-success' :
-                                                patient.status === 'Monitoring' ? 'bg-warning' : 'bg-danger'
+                                                    patient.status === 'Monitoring' ? 'bg-warning' : 'bg-danger'
                                             }`}>
                                                 {patient.status}
                                             </span>
@@ -821,7 +896,23 @@ const DoctorDashboard = () => {
                                                 <button className="btn btn-primary btn-sm">
                                                     <i className="fas fa-eye me-1"></i>View Records
                                                 </button>
-                                                <button className="btn btn-outline-primary btn-sm">
+                                                <button
+                                                    className="btn btn-sm"
+                                                    onClick={() => handleStartVideoConsultation({
+                                                        id: `patient_${patient.id}`,
+                                                        patient_name: patient.name,
+                                                        doctor_name: doctorName,
+                                                        date: new Date().toISOString().split('T')[0],
+                                                        time: new Date().toLocaleTimeString(),
+                                                        type: 'Video Consultation'
+                                                    })}
+                                                    style={{
+                                                        background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                                                        border: 'none',
+                                                        borderRadius: '8px',
+                                                        color: 'white'
+                                                    }}
+                                                >
                                                     <i className="fas fa-video me-1"></i>Start Call
                                                 </button>
                                                 <button className="btn btn-outline-secondary btn-sm">
@@ -1011,10 +1102,10 @@ const DoctorDashboard = () => {
                             </div>
                         ) : (
                             conversations.map(conversation => (
-                                <div 
-                                    key={conversation.id} 
-                                    className={`d-flex align-items-center p-3 border-bottom ${activeConversation?.id === conversation.id ? 'bg-primary-subtle' : ''}`} 
-                                    style={{ 
+                                <div
+                                    key={conversation.id}
+                                    className={`d-flex align-items-center p-3 border-bottom ${activeConversation?.id === conversation.id ? 'bg-primary-subtle' : ''}`}
+                                    style={{
                                         cursor: 'pointer',
                                         background: conversation.unread_count > 0 && activeConversation?.id !== conversation.id ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)' : undefined
                                     }}
@@ -1074,10 +1165,30 @@ const DoctorDashboard = () => {
                                 }}>
                                     <i className="fas fa-user"></i>
                                 </div>
-                                <div>
+                                <div className="flex-grow-1">
                                     <h6 className="mb-0 fw-bold text-dark">{activeConversation.other_user_name}</h6>
                                     <small className="text-success">{activeConversation.other_user_role}</small>
                                 </div>
+                                <button
+                                    className="btn btn-sm"
+                                    onClick={() => handleStartVideoConsultation({
+                                        id: `conv_${activeConversation.id}`,
+                                        patient_name: activeConversation.other_user_name,
+                                        doctor_name: doctorName,
+                                        date: new Date().toISOString().split('T')[0],
+                                        time: new Date().toLocaleTimeString(),
+                                        type: 'Video Consultation'
+                                    })}
+                                    style={{
+                                        background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        color: 'white',
+                                        padding: '6px 12px'
+                                    }}
+                                >
+                                    <i className="fas fa-video me-1"></i>Start Call
+                                </button>
                             </div>
                             <div className="card-body" style={{ height: '400px', overflowY: 'auto' }}>
                                 {loading ? (
@@ -1114,22 +1225,22 @@ const DoctorDashboard = () => {
                                                     {/* Text message */}
                                                     {message.message && (
                                                         <p className="mb-1 small">
-                                                            {typeof message.message === 'string' 
-                                                                ? message.message 
+                                                            {typeof message.message === 'string'
+                                                                ? message.message
                                                                 : '[Invalid Message]'
                                                             }
                                                         </p>
                                                     )}
-                                                    
+
                                                     {/* Image attachment */}
                                                     {message.image_attachment && (
                                                         <div className="mb-1">
-                                                            <img 
+                                                            <img
                                                                 src={`http://localhost:5000/api/files/${message.image_attachment.file_id}`}
                                                                 alt={message.image_attachment.original_name}
-                                                                style={{ 
-                                                                    maxWidth: '200px', 
-                                                                    maxHeight: '200px', 
+                                                                style={{
+                                                                    maxWidth: '200px',
+                                                                    maxHeight: '200px',
                                                                     borderRadius: '8px',
                                                                     cursor: 'pointer'
                                                                 }}
@@ -1141,7 +1252,7 @@ const DoctorDashboard = () => {
                                                             </small>
                                                         </div>
                                                     )}
-                                                    
+
                                                     <small className={isCurrentUser ? 'text-white-50' : 'text-muted'}>
                                                         {messageService.formatMessageTime(message.timestamp)}
                                                     </small>
@@ -1157,8 +1268,8 @@ const DoctorDashboard = () => {
                                         <div className="mb-2 p-2 bg-light rounded">
                                             <small className="text-muted">
                                                 🖼️ {selectedImage.name} ({(selectedImage.size / 1024 / 1024).toFixed(2)} MB)
-                                                <button 
-                                                    type="button" 
+                                                <button
+                                                    type="button"
                                                     className="btn btn-sm btn-link text-danger p-0 ms-2"
                                                     onClick={() => {
                                                         setSelectedImage(null);
@@ -1171,10 +1282,10 @@ const DoctorDashboard = () => {
                                         </div>
                                     )}
                                     <div className="input-group">
-                                        <input 
-                                            type="text" 
-                                            className="form-control" 
-                                            placeholder="Type your response..." 
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="Type your response..."
                                             value={newMessage}
                                             onChange={(e) => setNewMessage(e.target.value)}
                                         />
@@ -1185,7 +1296,7 @@ const DoctorDashboard = () => {
                                             onChange={handleImageSelect}
                                             style={{ display: 'none' }}
                                         />
-                                        <button 
+                                        <button
                                             type="button"
                                             className="btn btn-outline-secondary"
                                             onClick={() => document.getElementById('doctor-image-input').click()}
@@ -1193,9 +1304,9 @@ const DoctorDashboard = () => {
                                         >
                                             🖼️
                                         </button>
-                                        <button 
+                                        <button
                                             type="submit"
-                                            className="btn text-white" 
+                                            className="btn text-white"
                                             disabled={(!newMessage.trim() && !selectedImage) || loading || uploading}
                                             style={{
                                                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -1350,14 +1461,14 @@ const DoctorDashboard = () => {
     };
 
     return (
-        <div className="min-vh-100" style={{ 
+        <div className="min-vh-100" style={{
             background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
             minHeight: '100vh'
         }}>
             {/* Include Bootstrap Icons */}
             <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
             <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-            
+
             <style dangerouslySetInnerHTML={{
                 __html: `
                     .card:hover {
@@ -1398,9 +1509,9 @@ const DoctorDashboard = () => {
                     }
                 `
             }} />
-            
+
             {/* Dashboard Header */}
-            <header className="sticky-top" style={{ 
+            <header className="sticky-top" style={{
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
             }}>
@@ -1411,9 +1522,9 @@ const DoctorDashboard = () => {
                                 <div className="me-3">
                                     <div className="bg-white rounded-circle p-2" style={{ width: '50px', height: '50px' }}>
                                         {doctorProfile?.profilePhoto ? (
-                                            <img 
-                                                alt="Profile" 
-                                                className="rounded-circle" 
+                                            <img
+                                                alt="Profile"
+                                                className="rounded-circle"
                                                 src={`http://localhost:5000/api/files/${doctorProfile.profilePhoto}`}
                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                             />
@@ -1430,12 +1541,23 @@ const DoctorDashboard = () => {
                         </div>
                         <div className="col-12 col-lg-4">
                             <div className="d-flex flex-column flex-sm-row gap-2 justify-content-lg-end">
-                                <button className="btn text-white flex-fill flex-sm-grow-0" style={{
-                                    background: 'rgba(255,255,255,0.2)',
-                                    border: '1px solid rgba(255,255,255,0.3)',
-                                    backdropFilter: 'blur(10px)',
-                                    borderRadius: '10px'
-                                }}>
+                                <button
+                                    className="btn text-white flex-fill flex-sm-grow-0"
+                                    onClick={() => handleStartVideoConsultation({
+                                        id: 'emergency',
+                                        patient_name: 'Emergency Consultation',
+                                        doctor_name: doctorName,
+                                        date: new Date().toISOString().split('T')[0],
+                                        time: new Date().toLocaleTimeString(),
+                                        type: 'Emergency Video Consultation'
+                                    })}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.2)',
+                                        border: '1px solid rgba(255,255,255,0.3)',
+                                        backdropFilter: 'blur(10px)',
+                                        borderRadius: '10px'
+                                    }}
+                                >
                                     <i className="fas fa-video me-2"></i>
                                     <span className="d-none d-sm-inline">Start </span>Consultation
                                 </button>
@@ -1455,7 +1577,7 @@ const DoctorDashboard = () => {
             </header>
 
             {/* Dashboard Navigation */}
-            <nav className="bg-white" style={{ 
+            <nav className="bg-white" style={{
                 borderBottom: '1px solid #e9ecef',
                 boxShadow: '0 2px 10px rgba(0,0,0,0.08)'
             }}>
@@ -1477,8 +1599,8 @@ const DoctorDashboard = () => {
                                 }`}
                                 onClick={() => setActiveTab(tab.id)}
                                 style={{
-                                    background: activeTab === tab.id 
-                                        ? `linear-gradient(135deg, ${tab.color}, ${tab.color}dd)` 
+                                    background: activeTab === tab.id
+                                        ? `linear-gradient(135deg, ${tab.color}, ${tab.color}dd)`
                                         : 'transparent',
                                     color: activeTab === tab.id ? 'white' : '#6c757d',
                                     border: 'none',
@@ -1506,7 +1628,7 @@ const DoctorDashboard = () => {
                                 <span className="d-none d-md-inline">{tab.label}</span>
                                 <span className="d-md-none">{tab.label.slice(0, 3)}</span>
                                 {tab.badge && tab.badge > 0 ? (
-                                    <span 
+                                    <span
                                         className="position-absolute badge rounded-pill text-white"
                                         style={{
                                             background: 'linear-gradient(135deg, #ff6b6b, #ee5a52)',
@@ -1538,6 +1660,16 @@ const DoctorDashboard = () => {
             <main className="container-fluid px-3 px-md-4 py-4">
                 {renderTabContent()}
             </main>
+
+            {/* Video Consultation Modal */}
+            {showVideoModal && (
+                <VideoConsultationModal
+                    isOpen={showVideoModal}
+                    onClose={handleCloseVideoModal}
+                    appointmentId={selectedAppointmentForVideo?.id}
+                    appointmentData={selectedAppointmentForVideo}
+                />
+            )}
         </div>
     );
 };

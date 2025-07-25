@@ -24,6 +24,7 @@ from routes.doctor_schedule import doctor_schedule
 from routes.google_calendar import google_calendar
 
 
+
 load_dotenv()
 app = Flask(__name__)
 CORS(app)
@@ -135,6 +136,12 @@ client = MongoClient(MONGO_URI)
 db = client.mediconnect
 app.db = db
 users_collection = db.users
+appointments_collection = db.appointment
+messages_collection = db.messages
+conversations_collection = db.conversations
+doctor_profiles_collection = db.doctor_profiles
+patient_profiles_collection = db.patient_profiles
+video_sessions_collection = db.video_sessions
 
 # Register custom blueprints
 app.register_blueprint(doctor_schedule)
@@ -972,6 +979,238 @@ def serve_image(filename):
         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
     except Exception as e:
         return jsonify({"error": "File not found"}), 404
+    
+
+# Video Session Management Routes
+@app.route('/api/video/session/create', methods=['POST'])
+@token_required
+def create_video_session(current_user):
+    """Create a new video session for an appointment"""
+    try:
+        data = request.get_json()
+        appointment_id = data.get('appointment_id')
+        
+        if not appointment_id:
+            return jsonify({"error": "Appointment ID is required"}), 400
+        
+        # Verify the appointment exists and user has access
+        appointment = appointments_collection.find_one({"_id": ObjectId(appointment_id)})
+        if not appointment:
+            return jsonify({"error": "Appointment not found"}), 404
+        
+        user_email = current_user.get('email')
+        user_role = current_user.get('role')
+        
+        # Check if user has access to this appointment
+        has_access = False
+        if user_role == 'doctor' and appointment.get('doctorName') in [f"Dr. {current_user.get('firstName')} {current_user.get('lastName')}", f"{current_user.get('firstName')} {current_user.get('lastName')}"]:
+            has_access = True
+        elif user_role == 'patient' and appointment.get('patientEmail') == user_email:
+            has_access = True
+        
+        if not has_access:
+            return jsonify({"error": "Access denied to this appointment"}), 403
+        
+        # Check if session already exists for this appointment
+        existing_session = video_sessions_collection.find_one({"appointment_id": appointment_id})
+        if existing_session and existing_session.get('status') == 'active':
+            return jsonify({
+                "session_id": str(existing_session['_id']),
+                "room_id": existing_session['room_id'],
+                "status": existing_session['status'],
+                "created_at": existing_session['created_at']
+            }), 200
+        
+        # Create new video session
+        room_id = f"room_{uuid.uuid4().hex[:12]}"
+        session_doc = {
+            "appointment_id": appointment_id,
+            "room_id": room_id,
+            "doctor_email": appointment.get('doctorName', '').lower().replace(' ', '.') + '@mediconnect.com',  # Placeholder
+            "patient_email": appointment.get('patientEmail'),
+            "status": "active",
+            "created_at": datetime.now(timezone.utc),
+            "created_by": user_email,
+            "participants": [],
+            "session_data": {
+                "appointment_date": appointment.get('date'),
+                "appointment_time": appointment.get('time'),
+                "doctor_name": appointment.get('doctorName'),
+                "patient_name": appointment.get('patientName')
+            }
+        }
+        
+        result = video_sessions_collection.insert_one(session_doc)
+        
+        return jsonify({
+            "session_id": str(result.inserted_id),
+            "room_id": room_id,
+            "status": "active",
+            "message": "Video session created successfully"
+        }), 201
+        
+    except Exception as e:
+        print(f"Error creating video session: {e}")
+        return jsonify({"error": "Failed to create video session"}), 500
+
+@app.route('/api/video/session/<session_id>/join', methods=['POST'])
+@token_required
+def join_video_session(current_user, session_id):
+    """Join an existing video session"""
+    try:
+        session = video_sessions_collection.find_one({"_id": ObjectId(session_id)})
+        if not session:
+            return jsonify({"error": "Video session not found"}), 404
+        
+        user_email = current_user.get('email')
+        user_role = current_user.get('role')
+        
+        # Verify user has access to this session
+        if user_role == 'patient' and session.get('patient_email') != user_email:
+            return jsonify({"error": "Access denied"}), 403
+        elif user_role == 'doctor' and session.get('doctor_email') != user_email:
+            # For demo purposes, allow any doctor to join
+            pass
+        
+        if session.get('status') != 'active':
+            return jsonify({"error": "Session is not active"}), 400
+        
+        # Add participant to session
+        participant = {
+            "email": user_email,
+            "role": user_role,
+            "name": f"{current_user.get('firstName')} {current_user.get('lastName')}",
+            "joined_at": datetime.now(timezone.utc)
+        }
+        
+        # Update participants list
+        video_sessions_collection.update_one(
+            {"_id": ObjectId(session_id)},
+            {
+                "$addToSet": {"participants": participant},
+                "$set": {"last_activity": datetime.now(timezone.utc)}
+            }
+        )
+        
+        return jsonify({
+            "room_id": session['room_id'],
+            "session_data": session['session_data'],
+            "message": "Successfully joined video session"
+        }), 200
+        
+    except Exception as e:
+        print(f"Error joining video session: {e}")
+        return jsonify({"error": "Failed to join video session"}), 500
+
+@app.route('/api/video/session/<session_id>/end', methods=['POST'])
+@token_required
+def end_video_session(current_user, session_id):
+    """End a video session"""
+    try:
+        session = video_sessions_collection.find_one({"_id": ObjectId(session_id)})
+        if not session:
+            return jsonify({"error": "Video session not found"}), 404
+        
+        user_email = current_user.get('email')
+        user_role = current_user.get('role')
+        
+        # Only doctor or session creator can end the session
+        if user_role != 'doctor' and session.get('created_by') != user_email:
+            return jsonify({"error": "Only doctors can end the session"}), 403
+        
+        # Update session status
+        video_sessions_collection.update_one(
+            {"_id": ObjectId(session_id)},
+            {
+                "$set": {
+                    "status": "ended",
+                    "ended_at": datetime.now(timezone.utc),
+                    "ended_by": user_email
+                }
+            }
+        )
+        
+        return jsonify({"message": "Video session ended successfully"}), 200
+        
+    except Exception as e:
+        print(f"Error ending video session: {e}")
+        return jsonify({"error": "Failed to end video session"}), 500
+
+@app.route('/api/video/session/<session_id>/status', methods=['GET'])
+@token_required
+def get_session_status(current_user, session_id):
+    """Get current status of a video session"""
+    try:
+        session = video_sessions_collection.find_one({"_id": ObjectId(session_id)})
+        if not session:
+            return jsonify({"error": "Video session not found"}), 404
+        
+        user_email = current_user.get('email')
+        
+        # Check access
+        if (session.get('patient_email') != user_email and 
+            session.get('doctor_email') != user_email and 
+            session.get('created_by') != user_email):
+            return jsonify({"error": "Access denied"}), 403
+        
+        return jsonify({
+            "status": session.get('status'),
+            "room_id": session.get('room_id'),
+            "participants": session.get('participants', []),
+            "session_data": session.get('session_data', {}),
+            "created_at": session.get('created_at'),
+            "last_activity": session.get('last_activity')
+        }), 200
+        
+    except Exception as e:
+        print(f"Error getting session status: {e}")
+        return jsonify({"error": "Failed to get session status"}), 500
+
+@app.route('/api/appointments/<appointment_id>/video-session', methods=['GET'])
+@token_required
+def get_appointment_video_session(current_user, appointment_id):
+    """Get video session for a specific appointment"""
+    try:
+        # Verify appointment access
+        appointment = appointments_collection.find_one({"_id": ObjectId(appointment_id)})
+        if not appointment:
+            return jsonify({"error": "Appointment not found"}), 404
+        
+        user_email = current_user.get('email')
+        user_role = current_user.get('role')
+        
+        # Check access
+        has_access = False
+        if user_role == 'patient' and appointment.get('patientEmail') == user_email:
+            has_access = True
+        elif user_role == 'doctor':
+            # For demo purposes, allow any doctor
+            has_access = True
+        
+        if not has_access:
+            return jsonify({"error": "Access denied"}), 403
+        
+        # Find active session for this appointment
+        session = video_sessions_collection.find_one({
+            "appointment_id": appointment_id,
+            "status": "active"
+        })
+        
+        if session:
+            return jsonify({
+                "exists": True,
+                "session_id": str(session['_id']),
+                "room_id": session['room_id'],
+                "status": session['status'],
+                "participants": session.get('participants', [])
+            }), 200
+        else:
+            return jsonify({"exists": False}), 200
+            
+    except Exception as e:
+        print(f"Error getting appointment video session: {e}")
+        return jsonify({"error": "Failed to get video session"}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0')
