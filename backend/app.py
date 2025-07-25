@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, session, send_from_directory
 from flask_cors import CORS
 import jwt
 from pymongo import MongoClient
@@ -19,13 +19,20 @@ from PIL import Image
 import io
 from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Mail, Message
+from routes.doctor_schedule_settings import schedule_settings
+from routes.doctor_schedule import doctor_schedule
+from routes.google_calendar import google_calendar
+
 
 
 load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+secret_key = os.getenv('SECRET_KEY')
+app.config['SECRET_KEY'] = secret_key
+app.secret_key = secret_key
+
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
@@ -127,6 +134,7 @@ def compress_image(image_file, max_size_mb=2, quality=85, max_dimension=1920):
 MONGO_URI = os.getenv('MONGO_URI')
 client = MongoClient(MONGO_URI)
 db = client.mediconnect
+app.db = db
 users_collection = db.users
 appointments_collection = db.appointment
 messages_collection = db.messages
@@ -135,6 +143,12 @@ doctor_profiles_collection = db.doctor_profiles
 patient_profiles_collection = db.patient_profiles
 video_sessions_collection = db.video_sessions
 
+# Register custom blueprints
+app.register_blueprint(doctor_schedule)
+app.register_blueprint(google_calendar)
+app.register_blueprint(schedule_settings)
+
+# Signup route
 @app.route("/api/signup", methods=["POST"])
 def signup():
     data = request.json
@@ -161,6 +175,7 @@ def signup():
             "message": "Signup successful!"
         }), 201
 
+# Login route
 @app.route("/api/login", methods=["POST"])
 def login():
     data = request.json
@@ -171,16 +186,19 @@ def login():
 
     if not user or not bcrypt.checkpw(password.encode('utf-8'), user["password"]):
         return jsonify({"message": "Invalid Credentials"}), 401
-    
+
+    # Include role and doctorId in the token
     token = jwt.encode({
         "email": email,
         "role": user.get("role"),
+        "doctorId": str(user["_id"]),
         "exp": datetime.now(timezone.utc) + timedelta(hours=1)
     }, app.config['SECRET_KEY'], algorithm="HS256")
 
     return jsonify({
         "token": token,
         "role": user.get("role"),
+        "doctorId": str(user["_id"]),
         "name": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip(),
         "email": user.get("email") 
     })
@@ -1195,4 +1213,4 @@ def get_appointment_video_session(current_user, appointment_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')

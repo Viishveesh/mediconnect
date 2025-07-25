@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import LogOut from '../auth/LogOut.jsx';
 import DoctorProfile from './DoctorProfile.jsx';
+import DoctorSchedule from './DoctorSchedule.jsx';
 import { useMessages } from '../../hooks/useMessages';
 import { messageService } from '../../services/messageService';
 import VideoConsultationModal from '../../components/VideoConsultationModal';
@@ -30,6 +31,38 @@ const DoctorDashboard = () => {
     const [newMessage, setNewMessage] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [settings, setSettings] = useState({
+        workingHours: { start: "09:00", end: "17:00" },
+        workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        consultationDuration: 30,
+    });
+
+    useEffect(() => {
+    const fetchSettings = async () => {
+        try {
+        const res = await axios.get(
+            `http://localhost:5000/doctor/schedule-settings?doctorId=${localStorage.getItem("doctorId")}`
+        );
+        if (res.status === 200) setSettings(res.data);
+        } catch (err) {
+        console.log("No schedule settings found. Using default.");
+        }
+    };
+    fetchSettings();
+    }, []);
+
+    const saveSettings = async () => {
+    try {
+        await axios.post("http://localhost:5000/doctor/schedule-settings", {
+        doctorId: localStorage.getItem("doctorId"),
+        ...settings,
+        });
+        alert("Schedule settings saved!");
+    } catch (err) {
+        console.error("Failed to save schedule settings", err);
+        alert("Error saving settings.");
+    }
+    };
 
     useEffect(() => {
         // Get doctor's name from localStorage
@@ -909,127 +942,123 @@ const DoctorDashboard = () => {
                     <div className="card-header">
                         <h5 className="mb-0">Weekly Schedule</h5>
                     </div>
-                    <div className="card-body">
-                        <div className="table-responsive">
-                            <table className="table table-bordered">
-                                <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>Mon</th>
-                                    <th>Tue</th>
-                                    <th>Wed</th>
-                                    <th>Thu</th>
-                                    <th>Fri</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                <tr>
-                                    <td><small>9:00 AM</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-primary text-white text-center"><small>Sarah J.</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-primary text-white text-center"><small>Michael S.</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                </tr>
-                                <tr>
-                                    <td><small>10:00 AM</small></td>
-                                    <td className="bg-primary text-white text-center"><small>Lisa D.</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-primary text-white text-center"><small>Robert W.</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-primary text-white text-center"><small>Emma T.</small></td>
-                                </tr>
-                                <tr>
-                                    <td><small>11:00 AM</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                </tr>
-                                <tr>
-                                    <td><small>2:00 PM</small></td>
-                                    <td className="bg-primary text-white text-center"><small>James W.</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-primary text-white text-center"><small>Anna K.</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                    <td className="bg-light text-center"><small>Available</small></td>
-                                </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                        <DoctorSchedule doctorId={localStorage.getItem("doctorId")} 
+                        settings={settings} 
+                        key={
+                            settings.workingDays.join(",") +
+                            settings.workingHours.start +
+                            settings.workingHours.end +
+                            settings.consultationDuration
+                        }/>
                 </div>
             </div>
 
             {/* Schedule Settings */}
             <div className="col-12 col-lg-4">
-                <div className="row g-3">
-                    <div className="col-12">
-                        <div className="card">
-                            <div className="card-header">
-                                <h6 className="mb-0">Schedule Settings</h6>
-                            </div>
-                            <div className="card-body">
-                                <div>
-                                    <div className="mb-3">
-                                        <label className="form-label">Working Hours</label>
-                                        <div className="row g-2">
-                                            <div className="col-6">
-                                                <input type="time" className="form-control" defaultValue="09:00" />
-                                            </div>
-                                            <div className="col-6">
-                                                <input type="time" className="form-control" defaultValue="17:00" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label">Working Days</label>
-                                        {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
-                                            <div className="form-check" key={day}>
-                                                <input className="form-check-input" type="checkbox" defaultChecked />
-                                                <label className="form-check-label">{day}</label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label">Consultation Duration</label>
-                                        <select className="form-select">
-                                            <option value="30">30 minutes</option>
-                                            <option value="45">45 minutes</option>
-                                            <option value="60">60 minutes</option>
-                                        </select>
-                                    </div>
-                                    <button type="button" className="btn btn-primary w-100">
-                                        <i className="fas fa-save me-2"></i>Save Schedule
-                                    </button>
-                                </div>
-                            </div>
+            <div className="row g-3">
+                <div className="col-12">
+                <div className="card">
+                    <div className="card-header">
+                    <h6 className="mb-0">Schedule Settings</h6>
+                    </div>
+                    <div className="card-body">
+                    {/* Working Hours */}
+                    <div className="mb-3">
+                        <label className="form-label">Working Hours</label>
+                        <div className="row g-2">
+                        <div className="col-6">
+                            <input
+                            type="time"
+                            className="form-control"
+                            value={settings.workingHours.start}
+                            onChange={(e) =>
+                                setSettings((prev) => ({
+                                ...prev,
+                                workingHours: {
+                                    ...prev.workingHours,
+                                    start: e.target.value,
+                                },
+                                }))
+                            }
+                            />
+                        </div>
+                        <div className="col-6">
+                            <input
+                            type="time"
+                            className="form-control"
+                            value={settings.workingHours.end}
+                            onChange={(e) =>
+                                setSettings((prev) => ({
+                                ...prev,
+                                workingHours: {
+                                    ...prev.workingHours,
+                                    end: e.target.value,
+                                },
+                                }))
+                            }
+                            />
+                        </div>
                         </div>
                     </div>
 
-                    <div className="col-12">
-                        <div className="card">
-                            <div className="card-header">
-                                <h6 className="mb-0">Quick Actions</h6>
+                    {/* Working Days */}
+                    <div className="mb-3">
+                        <label className="form-label">Working Days</label>
+                        {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(
+                        (day) => (
+                            <div className="form-check" key={day}>
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={settings.workingDays.includes(day)}
+                                onChange={(e) => {
+                                const updatedDays = e.target.checked
+                                    ? [...settings.workingDays, day]
+                                    : settings.workingDays.filter((d) => d !== day);
+                                setSettings((prev) => ({
+                                    ...prev,
+                                    workingDays: updatedDays,
+                                }));
+                                }}
+                            />
+                            <label className="form-check-label">{day}</label>
                             </div>
-                            <div className="card-body">
-                                <div className="d-grid gap-2">
-                                    <button className="btn btn-outline-primary">
-                                        <i className="fas fa-calendar-times me-2"></i>Block Time
-                                    </button>
-                                    <button className="btn btn-outline-warning">
-                                        <i className="fas fa-plane me-2"></i>Set Vacation
-                                    </button>
-                                    <button className="btn btn-outline-info">
-                                        <i className="fas fa-copy me-2"></i>Copy Schedule
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        )
+                        )}
+                    </div>
+
+                    {/* Consultation Duration */}
+                    <div className="mb-3">
+                        <label className="form-label">Consultation Duration</label>
+                        <select
+                        className="form-select"
+                        value={settings.consultationDuration}
+                        onChange={(e) =>
+                            setSettings((prev) => ({
+                            ...prev,
+                            consultationDuration: parseInt(e.target.value),
+                            }))
+                        }
+                        >
+                        <option value="15">15 minutes</option>
+                        <option value="30">30 minutes</option>
+                        </select>
+                    </div>
+
+                    {/* Save Button */}
+                    <button
+                        type="button"
+                        className="btn btn-primary w-100"
+                        onClick={saveSettings}
+                    >
+                        <i className="fas fa-save me-2"></i>Save Schedule
+                    </button>
                     </div>
                 </div>
+                </div>
             </div>
+            </div>
+
         </div>
     );
 

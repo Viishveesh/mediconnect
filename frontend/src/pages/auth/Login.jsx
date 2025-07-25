@@ -3,6 +3,7 @@ import axios from "axios";
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from 'jwt-decode';
 
 
 const Login = ({ toggleForm }) => {
@@ -20,12 +21,17 @@ const Login = ({ toggleForm }) => {
 
     try {
       const res = await axios.post("http://localhost:5000/api/login", formData);
-      const { token, role, name, email } = res.data;
+      const { token, role, doctorId, name, email } = res.data;
+      const decoded = jwtDecode(token);
 
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
       localStorage.setItem("name", name);
       localStorage.setItem("email", email);
+
+      if (role === "doctor" && doctorId) {
+        localStorage.setItem("doctorId", decoded.doctorId);
+      }
 
       setMessage({ type: 'success', text: 'Login successful! Redirecting...' });
 
