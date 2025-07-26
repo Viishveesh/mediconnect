@@ -7,6 +7,10 @@ import { useMessages } from '../../hooks/useMessages';
 import { messageService } from '../../services/messageService';
 import { Modal, Button } from 'react-bootstrap';
 import VideoConsultationModal from '../../components/VideoConsultationModal';
+import FullCalendar from "@fullcalendar/react";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin from "@fullcalendar/interaction";
+
 
 import './Dashboard.css';
 
@@ -55,6 +59,19 @@ const PatientDashboard = () => {
         setSelectedDoctor(null);
     };
 
+    const calendarEvents = availabilitySlots.map(slot => ({
+        title: 'Available',
+        start: new Date(slot.startTime),
+        end: new Date(slot.endTime),
+        allDay: false
+    }));
+
+    const handleEventClick = ({ event }) => {
+        const start = event.start.toISOString();
+        const end = event.end.toISOString();
+        navigate(`/book-appointment/${availabilityDoctorId}?start=${start}&end=${end}`);
+    };
+
     const fetchDoctorAvailability = async (doctorUserId) => {
         setAvailabilityLoading(true);
         setAvailabilityDoctorId(doctorUserId);
@@ -85,18 +102,23 @@ const PatientDashboard = () => {
             ) : availabilitySlots.length === 0 ? (
                 <p className="text-muted">No available slots</p>
             ) : (
-                <ul className="list-group">
-                {availabilitySlots.map((slot, idx) => (
-                    <li key={`${slot.startTime}-${slot.endTime}`} className="list-group-item">
-                        {new Date(slot.startTime).toLocaleString()} — {new Date(slot.endTime).toLocaleString()}
-                    </li>
-                ))}
-                </ul>
+                <FullCalendar
+                    plugins={[timeGridPlugin, interactionPlugin]}
+                    initialView="timeGridWeek"
+                    headerToolbar={{
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'timeGridDay,timeGridWeek'
+                    }}
+                    events={calendarEvents}
+                    eventClick={handleEventClick}
+                    height="550px"
+                    timeZone="UTC"
+                />
             )}
             </div>
         </div>
     );
-
 
 
     // Video consultation handlers
