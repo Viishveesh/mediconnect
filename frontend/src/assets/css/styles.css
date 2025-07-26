@@ -466,6 +466,10 @@ padding: 20px;
   color: #6c757d;
 }
 
+.fc .fc-timegrid-slot {
+  height: 40px !important; 
+}
+
 .fc .fc-col-header-cell {
   font-size: 0.9rem;
   font-weight: 600;
@@ -488,3 +492,5 @@ padding: 20px;
 .fc .fc-scrollgrid {
   background-color: #fff;
 }
+
+
