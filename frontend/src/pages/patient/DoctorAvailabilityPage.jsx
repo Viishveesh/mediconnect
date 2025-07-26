@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import FullCalendar from '@fullcalendar/react';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import axios from "axios";
+import FullCalendar from "@fullcalendar/react";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin from "@fullcalendar/interaction";
 
 const DoctorAvailabilityPage = () => {
   const { doctorId } = useParams();
@@ -33,7 +33,7 @@ const DoctorAvailabilityPage = () => {
   // Transform slots to FullCalendar format
   const calendarEvents = availability.map((slot, idx) => ({
     id: `slot-${idx}`,
-    title: 'Available',
+    title: "Available",
     start: new Date(slot.startTime),
     end: new Date(slot.endTime),
     allDay: false,
@@ -45,7 +45,6 @@ const DoctorAvailabilityPage = () => {
     navigate(`/book-appointment/${doctorId}?start=${start}&end=${end}`);
   };
 
-
   return (
     <div className="container py-4">
       <h2>Doctor Availability</h2>
@@ -54,19 +53,33 @@ const DoctorAvailabilityPage = () => {
       ) : availability.length === 0 ? (
         <p>No available slots</p>
       ) : (
-        <FullCalendar
-          plugins={[timeGridPlugin, interactionPlugin]}
-          initialView="timeGridWeek"
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: 'timeGridDay,timeGridWeek'
-          }}
-          events={calendarEvents}
-          eventClick={handleEventClick}
-          height="550px"
-          timeZone="UTC"
-        />
+        <div style={{
+            width: "95%",
+            backgroundColor: "#ffffff",
+            borderRadius: "16px",
+            boxShadow: "inset 0 4px 10px rgba(0,0,0,0.1)",
+            padding: "10px",
+            margin: "0 auto"
+          }}>
+          <FullCalendar
+            plugins={[timeGridPlugin, interactionPlugin]}
+            initialView="timeGridWeek"
+            headerToolbar={{
+              left: "prev,next today",
+              center: "title",
+              right: "timeGridDay,timeGridWeek",
+            }}
+            events={calendarEvents}
+            eventClick={handleEventClick}
+            height="550px"
+            timeZone="UTC"
+            slotLabelInterval="00:30:00"
+            slotDuration="00:30:00"
+            slotMinTime="08:00:00"
+            slotMaxTime="22:00:00"
+            allDaySlot={false}
+          />
+        </div>
       )}
     </div>
   );
