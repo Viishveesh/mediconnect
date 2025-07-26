@@ -19,10 +19,11 @@ from PIL import Image
 import io
 from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Mail, Message
+from routes.db import doctor_profiles_collection, doctor_availability_collection
 from routes.doctor_schedule_settings import schedule_settings
 from routes.doctor_schedule import doctor_schedule
 from routes.google_calendar import google_calendar
-
+from routes.doctor_public_route import doctor_routes
 
 
 load_dotenv()
@@ -142,11 +143,13 @@ conversations_collection = db.conversations
 doctor_profiles_collection = db.doctor_profiles
 patient_profiles_collection = db.patient_profiles
 video_sessions_collection = db.video_sessions
+doctor_availability_collection = db.doctor_availability
 
 # Register custom blueprints
 app.register_blueprint(doctor_schedule)
 app.register_blueprint(google_calendar)
 app.register_blueprint(schedule_settings)
+app.register_blueprint(doctor_routes)
 
 # Signup route
 @app.route("/api/signup", methods=["POST"])

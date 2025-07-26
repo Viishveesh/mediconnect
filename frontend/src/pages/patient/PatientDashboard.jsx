@@ -15,6 +15,11 @@ const PatientDashboard = () => {
     const [patientName, setPatientName] = useState('Patient');
     const [patientProfile, setPatientProfile] = useState(null);
     const [availableDoctor, setAvailableDoctors] = useState([]);
+
+    const [availabilitySlots, setAvailabilitySlots] = useState([]);
+    const [availabilityLoading, setAvailabilityLoading] = useState(false);
+    const [availabilityDoctorId, setAvailabilityDoctorId] = useState(null);
+
     const navigate = useNavigate();
     const {
         conversations,
@@ -49,6 +54,50 @@ const PatientDashboard = () => {
         setShowProfileModal(false);
         setSelectedDoctor(null);
     };
+
+    const fetchDoctorAvailability = async (doctorUserId) => {
+        setAvailabilityLoading(true);
+        setAvailabilityDoctorId(doctorUserId);
+        setActiveTab('availability');
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`http://localhost:5000/api/doctors/${doctorUserId}/availability`, {
+            headers: { Authorization: `Bearer ${token}` }
+            });
+            setAvailabilitySlots(res.data);
+        } catch (err) {
+            console.error("Failed to load availability:", err);
+            setAvailabilitySlots([]);
+        } finally {
+            setAvailabilityLoading(false);
+        }
+    };
+
+    const renderDoctorAvailability = () => (
+        <div className="row g-3 g-md-4">
+            <div className="col-12">
+            <button className="btn btn-outline-secondary mb-3" onClick={() => setActiveTab('available')}>
+                ← Back to Doctor List
+            </button>
+            <h4>Available Slots</h4>
+            {availabilityLoading ? (
+                <p className="text-muted">Loading slots...</p>
+            ) : availabilitySlots.length === 0 ? (
+                <p className="text-muted">No available slots</p>
+            ) : (
+                <ul className="list-group">
+                {availabilitySlots.map((slot, idx) => (
+                    <li key={`${slot.startTime}-${slot.endTime}`} className="list-group-item">
+                        {new Date(slot.startTime).toLocaleString()} — {new Date(slot.endTime).toLocaleString()}
+                    </li>
+                ))}
+                </ul>
+            )}
+            </div>
+        </div>
+    );
+
+
 
     // Video consultation handlers
     const handleStartVideoConsultation = (appointment) => {
@@ -538,7 +587,7 @@ const PatientDashboard = () => {
 
             {filteredDoctors.length > 0 ? (
                 filteredDoctors.map(doctor => (
-                        <div key={doctor.id} className="col-12 col-lg-6">
+                        <div key={doctor.userId} className="col-12 col-lg-6">
                             <div className="card h-100" style={{
                                 border: 'none',
                                 borderRadius: '20px',
@@ -565,9 +614,9 @@ const PatientDashboard = () => {
 
                                             {doctor.rating ? (
                                                 <div className="d-flex align-items-center mb-2">
-                                <span className="text-warning me-1">
-                                {'★'.repeat(Math.floor(doctor.rating))}
-                                </span>
+                                                    <span className="text-warning me-1">
+                                                    {'★'.repeat(Math.floor(doctor.rating))}
+                                                    </span>
                                                     <span className="small text-muted">{doctor.rating} • {doctor.experience}</span>
                                                 </div>
                                             ) : (
@@ -576,17 +625,12 @@ const PatientDashboard = () => {
 
                                             <div className="d-flex gap-2">
                                                 <button
-                                                    onClick={() => navigate(`/book-appointment/${doctor._id}`, { state: { doctorName: doctor.name } })}
-                                                    className="btn btn-sm text-white"
-                                                    style={{
-                                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                        border: 'none',
-                                                        borderRadius: '8px',
-                                                        padding: '8px 16px'
-                                                    }}
-                                                >
-                                                    <i className="fas fa-calendar me-1"></i>Book Appointment
+                                                    className="btn btn-outline-success btn-sm"
+                                                    onClick={() => fetchDoctorAvailability(doctor._id)}
+                                                    >
+                                                    <i className="fas fa-clock me-1"></i> View Availability
                                                 </button>
+
 
                                                 <button
                                                     className="btn btn-outline-secondary btn-sm"
@@ -610,6 +654,7 @@ const PatientDashboard = () => {
             }
 
         </div>
+        
     );
 
     const renderMessages = () => (
@@ -886,6 +931,7 @@ const PatientDashboard = () => {
     const renderTabContent = () => {
         switch(activeTab) {
             case 'available': return renderAvailableDoctors();
+            case 'availability': return renderDoctorAvailability();
             case 'overview': return renderOverview();
             case 'messages': return renderMessages();
             case 'profile': return renderProfile();

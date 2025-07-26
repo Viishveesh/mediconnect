@@ -18,6 +18,8 @@ import BrowseDoctors from './pages/patient/BrowseDoctors';
 import DoctorProfile from './pages/patient/DoctorProfile';
 import BookAppointment from './pages/patient/BookAppointment';
 import OAuthSuccess from './pages/doctor/0AuthSuccess';
+import DoctorAvailabilityPage from './pages/patient/DoctorAvailabilityPage';
+
 
 function App() {
   return(
@@ -79,6 +81,10 @@ function App() {
 
         <Route path="/doctor/schedule/:doctorId" element={<ProtectedRoute> <DoctorSchedule /> </ProtectedRoute>} />
         <Route path="/oauth-success" element={<OAuthSuccess />} />
+        <Route
+          path="/doctor/:doctorId/availability"
+          element={<ProtectedRoute requiredRole="patient"><DoctorAvailabilityPage /></ProtectedRoute>}
+        />
         </Routes>
         {/* <Footer /> */}
       </div>
