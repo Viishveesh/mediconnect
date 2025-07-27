@@ -1,0 +1,35 @@
+name: OWASP Scan
+
+on:
+  schedule:
+    - cron: '0 4 * * 1' # Every Monday at 4am
+  workflow_dispatch:
+
+jobs:
+  owasp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: OWASP Scan Backend
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: "Python Backend"
+          path: ./backend
+          format: "HTML"
+          out: "dependency-check-report-backend"
+
+      - name: OWASP Scan Frontend
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: "Frontend"
+          path: ./frontend
+          format: "HTML"
+          out: "dependency-check-report-frontend"
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-reports
+          path: |
+            dependency-check-report-*
