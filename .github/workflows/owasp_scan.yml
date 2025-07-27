@@ -1,9 +1,17 @@
 name: OWASP Scan
 
+# on:
+#   schedule:
+#     - cron: '0 4 * * 1' # Every Monday at 4am
+#   workflow_dispatch:
+
 on:
-  schedule:
-    - cron: '0 4 * * 1' # Every Monday at 4am
-  workflow_dispatch:
+  push:
+    branches:
+      - feature/2
+  pull_request:
+    branches:
+      - feature/2
 
 jobs:
   owasp:
