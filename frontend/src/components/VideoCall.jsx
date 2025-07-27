@@ -4,7 +4,6 @@ import Peer from 'peerjs';
 const VideoCall = ({ appointmentId, onCallEnd }) => {
     const [peer, setPeer] = useState(null);
     const [myPeerId, setMyPeerId] = useState('');
-    const [remotePeerId, setRemotePeerId] = useState('');
     const [call, setCall] = useState(null);
     const [isCallActive, setIsCallActive] = useState(false);
     const [isVideoEnabled, setIsVideoEnabled] = useState(true);
@@ -15,13 +14,16 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
     const [roomId, setRoomId] = useState('');
     const [participants, setParticipants] = useState([]);
     const [error, setError] = useState('');
+    const [retryCount, setRetryCount] = useState(0);
 
     // Video refs
     const localVideoRef = useRef();
     const remoteVideoRef = useRef();
     const localStreamRef = useRef();
+    const peerRef = useRef();
     const userRole = localStorage.getItem('role');
     const userName = localStorage.getItem('name');
+    const MAX_RETRIES = 3;
 
     // Initialize PeerJS and video session
     useEffect(() => {
@@ -31,89 +33,29 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
                 setError('');
 
                 // Create or join video session
-                const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/video/session/create`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ appointment_id: appointmentId })
-                });
+                const sessionData = await createVideoSession();
+                if (!sessionData) return;
 
-                if (!response.ok) {
-                    throw new Error('Failed to create video session');
-                }
+                console.log('Session data received:', sessionData);
 
-                const sessionData = await response.json();
                 setSessionId(sessionData.session_id);
                 setRoomId(sessionData.room_id);
 
-                // Initialize PeerJS with custom server
-                const peerId = `${sessionData.room_id}_${userRole}_${Date.now()}`;
-                const newPeer = new Peer(peerId, {
-                    host: 'localhost',
-                    port: 9001, // Updated port for PeerJS server
-                    path: '/peerjs',
-                    secure: false, // Set to true in production with HTTPS
-                    config: {
-                        iceServers: [
-                            { urls: 'stun:stun.l.google.com:19302' },
-                            { urls: 'stun:stun1.l.google.com:19302' },
-                            { urls: 'stun:stun2.l.google.com:19302' }
-                        ]
-                    },
-                    debug: 2
-                });
+                // Initialize media first
+                await initializeMedia();
 
-                newPeer.on('open', (id) => {
-                    console.log('My peer ID is: ' + id);
-                    setMyPeerId(id);
-                    setConnectionStatus('connected');
-                    initializeMedia();
-                });
+                // Initialize PeerJS and wait for it to be fully ready
+                const peerInstance = await initializePeer(sessionData.room_id);
 
-                newPeer.on('call', (incomingCall) => {
-                    console.log('Receiving call...');
-                    if (localStreamRef.current) {
-                        incomingCall.answer(localStreamRef.current);
-                        setCall(incomingCall);
-
-                        incomingCall.on('stream', (remoteStream) => {
-                            console.log('Received remote stream');
-                            if (remoteVideoRef.current) {
-                                remoteVideoRef.current.srcObject = remoteStream;
-                            }
-                            setIsCallActive(true);
-                        });
-
-                        incomingCall.on('close', () => {
-                            console.log('Call ended by remote peer');
-                            endCall();
-                        });
-                    }
-                });
-
-                newPeer.on('disconnected', () => {
-                    console.log('Peer disconnected');
-                    setConnectionStatus('disconnected');
-                });
-
-                newPeer.on('error', (err) => {
-                    console.error('PeerJS error:', err);
-                    setError(`Connection error: ${err.message}`);
-                    setConnectionStatus('error');
-                });
-
-                setPeer(newPeer);
-
-                // Join the session
-                await joinSession(sessionData.session_id);
+                // Only proceed with room joining after peer is ready
+                if (peerInstance) {
+                    console.log('Peer fully initialized, proceeding with room join...');
+                    await joinSession(sessionData.session_id, sessionData.room_id);
+                }
 
             } catch (error) {
                 console.error('Error initializing video call:', error);
-                setError(`Failed to initialize video call: ${error.message}`);
-                setIsConnecting(false);
+                handleError(`Failed to initialize video call: ${error.message}`);
             }
         };
 
@@ -123,20 +65,72 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
 
         // Cleanup on unmount
         return () => {
-            if (localStreamRef.current) {
-                localStreamRef.current.getTracks().forEach(track => track.stop());
-            }
-            if (peer) {
-                peer.destroy();
-            }
+            cleanup();
         };
     }, [appointmentId]);
+
+    const createVideoSession = async () => {
+        try {
+            const token = localStorage.getItem('token');
+
+            // First, check if there's already an active session for this appointment
+            const checkResponse = await fetch(`http://localhost:5000/api/appointments/${appointmentId}/video-session`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (checkResponse.ok) {
+                const existingSession = await checkResponse.json();
+                if (existingSession.exists) {
+                    console.log('Joining existing session:', existingSession);
+                    return {
+                        session_id: existingSession.session_id,
+                        room_id: existingSession.room_id,
+                        status: existingSession.status
+                    };
+                }
+            }
+
+            // If no existing session, create a new one
+            console.log('Creating new video session for appointment:', appointmentId);
+            const response = await fetch(`http://localhost:5000/api/video/session/create`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ appointment_id: appointmentId })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to create video session: ${response.status} - ${errorText}`);
+            }
+
+            const sessionData = await response.json();
+            console.log('New session created:', sessionData);
+            return sessionData;
+        } catch (error) {
+            console.error('Session creation/join failed:', error);
+            handleError(`Session creation failed: ${error.message}`);
+            return null;
+        }
+    };
 
     const initializeMedia = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true
+                video: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    frameRate: { ideal: 30 }
+                },
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                }
             });
 
             localStreamRef.current = stream;
@@ -144,18 +138,186 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
                 localVideoRef.current.srcObject = stream;
             }
 
-            setIsConnecting(false);
             console.log('Local media initialized');
+            return stream;
         } catch (error) {
             console.error('Error accessing media devices:', error);
-            setError('Failed to access camera/microphone');
-            setIsConnecting(false);
+            handleError('Failed to access camera/microphone. Please check permissions.');
+            throw error;
         }
     };
 
-    const joinSession = async (sessionId) => {
+    const initializePeer = async (currentRoomId) => {
+        try {
+            // Generate unique peer ID using the passed roomId
+            const peerId = `${currentRoomId}_${userRole}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            console.log(`Initializing peer with ID: ${peerId}`);
+
+            const newPeer = new Peer(peerId, {
+                host: 'localhost',
+                port: 9001,
+                path: '/peerjs',
+                key: 'mediconnect',
+                secure: false,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' }
+                    ],
+                    iceCandidatePoolSize: 10
+                },
+                debug: 1
+            });
+
+            peerRef.current = newPeer;
+
+            return new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('Peer connection timeout'));
+                }, 15000);
+
+                newPeer.on('open', (id) => {
+                    clearTimeout(timeout);
+                    console.log('Peer connected with ID: ' + id);
+                    setMyPeerId(id);
+                    setConnectionStatus('connected');
+                    setPeer(newPeer);
+                    setIsConnecting(false);
+
+                    // Wait a bit more to ensure peer is fully ready
+                    setTimeout(() => {
+                        console.log('Peer is fully ready for connections');
+                        resolve(newPeer);
+                    }, 1000);
+                });
+
+                newPeer.on('call', (incomingCall) => {
+                    console.log('Receiving call...');
+                    handleIncomingCall(incomingCall);
+                });
+
+                newPeer.on('disconnected', () => {
+                    console.log('Peer disconnected');
+                    setConnectionStatus('disconnected');
+                    setPeer(null);
+
+                    if (!newPeer.destroyed && retryCount < MAX_RETRIES) {
+                        console.log(`Attempting to reconnect... (${retryCount + 1}/${MAX_RETRIES})`);
+                        setTimeout(() => {
+                            setRetryCount(prev => prev + 1);
+                            if (!newPeer.destroyed) {
+                                try {
+                                    newPeer.reconnect();
+                                } catch (reconnectError) {
+                                    console.error('Reconnection failed:', reconnectError);
+                                    handleError('Connection lost. Please refresh and try again.');
+                                }
+                            }
+                        }, 2000);
+                    } else if (retryCount >= MAX_RETRIES) {
+                        handleError('Connection lost after multiple attempts. Please refresh and try again.');
+                    }
+                });
+
+                newPeer.on('error', (err) => {
+                    clearTimeout(timeout);
+                    console.error('PeerJS error:', err);
+                    setConnectionStatus('error');
+                    setPeer(null);
+
+                    if (err.type === 'peer-unavailable') {
+                        handleError('The other participant is not available. Please wait for them to join.');
+                    } else if (err.type === 'network') {
+                        handleError('Network error. Please check your internet connection.');
+                    } else if (err.type === 'server-error') {
+                        handleError('Server error. Please try refreshing the page.');
+                    } else {
+                        handleError(`Connection error: ${err.message}`);
+                    }
+
+                    reject(err);
+                });
+            });
+        } catch (error) {
+            handleError(`Peer initialization failed: ${error.message}`);
+            throw error;
+        }
+    };
+
+    const handleIncomingCall = (incomingCall) => {
+        if (localStreamRef.current) {
+            incomingCall.answer(localStreamRef.current);
+            setCall(incomingCall);
+            setupCallEventHandlers(incomingCall);
+        }
+    };
+
+    const setupCallEventHandlers = (callInstance, callTimeout = null) => {
+        callInstance.on('stream', (remoteStream) => {
+            console.log('Received remote stream - call successful!');
+            if (callTimeout) clearTimeout(callTimeout);
+
+            if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = remoteStream;
+            }
+            setIsCallActive(true);
+            setIsConnecting(false);
+            setConnectionStatus('In Call');
+        });
+
+        callInstance.on('close', () => {
+            console.log('Call ended by remote peer');
+            if (callTimeout) clearTimeout(callTimeout);
+            handleCallEnd();
+        });
+
+        callInstance.on('error', (error) => {
+            console.error('Call error:', error);
+            if (callTimeout) clearTimeout(callTimeout);
+            setIsConnecting(false);
+
+            if (error.type === 'peer-unavailable') {
+                console.log('Peer unavailable, will retry with discovery...');
+                setTimeout(() => {
+                    startPeerDiscovery(roomId);
+                }, 3000);
+            } else {
+                handleError(`Call error: ${error.message}`);
+            }
+        });
+    };
+
+    const cleanupStaleParticipants = async (currentRoomId) => {
+        if (!currentRoomId || !myPeerId) return;
+
+        try {
+            console.log('Cleaning up stale participants...');
+
+            await fetch(`http://localhost:9000/api/rooms/${currentRoomId}/leave`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ peerId: myPeerId })
+            });
+
+            setTimeout(async () => {
+                await registerAndDiscoverPeers(currentRoomId);
+            }, 1000);
+
+        } catch (error) {
+            console.error('Error cleaning up participants:', error);
+        }
+    };
+
+    const joinSession = async (sessionId, currentRoomId) => {
         try {
             const token = localStorage.getItem('token');
+
+            console.log(`Joining session ${sessionId} with roomId: ${currentRoomId}`);
 
             // Join video session in backend
             const response = await fetch(`http://localhost:5000/api/video/session/${sessionId}/join`, {
@@ -168,185 +330,253 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
 
             if (response.ok) {
                 console.log('Successfully joined video session');
-
-                // Register with PeerJS server
-                await registerWithPeerServer();
-
-                // Start peer discovery
-                setTimeout(() => {
-                    discoverPeers();
-                }, 2000);
+                if (currentRoomId && myPeerId) {
+                    await registerAndDiscoverPeers(currentRoomId);
+                } else {
+                    console.log('Waiting for peer ID to be available...');
+                    setTimeout(() => {
+                        if (myPeerId) {
+                            registerAndDiscoverPeers(currentRoomId);
+                        } else {
+                            startPeerDiscovery(currentRoomId);
+                        }
+                    }, 1000);
+                }
             }
         } catch (error) {
             console.error('Error joining session:', error);
+            handleError(`Failed to join session: ${error.message}`);
         }
     };
 
-    const registerWithPeerServer = async () => {
+    const registerAndDiscoverPeers = async (currentRoomId) => {
         try {
-            // Register this peer with our custom PeerJS server
-            const response = await fetch(`http://localhost:9000/api/rooms/${roomId}/join`, {
+            if (!currentRoomId) {
+                console.error('No roomId provided to registerAndDiscoverPeers');
+                return;
+            }
+
+            if (!peer || !peer.open || !myPeerId) {
+                console.log('Waiting for peer to be ready before registration...');
+                setTimeout(() => {
+                    if (peer && peer.open && myPeerId) {
+                        registerAndDiscoverPeers(currentRoomId);
+                    } else {
+                        console.error('Peer still not ready, starting discovery as fallback');
+                        startPeerDiscovery(currentRoomId);
+                    }
+                }, 1500);
+                return;
+            }
+
+            console.log(`Registering with room: ${currentRoomId}, peer: ${myPeerId}`);
+
+            const registrationData = {
+                peerId: myPeerId,
+                userInfo: {
+                    name: userName,
+                    role: userRole,
+                    appointmentId: appointmentId
+                }
+            };
+
+            const response = await fetch(`http://localhost:9000/api/rooms/${currentRoomId}/join`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    peerId: myPeerId,
-                    userInfo: {
-                        name: userName,
-                        role: userRole,
-                        appointmentId: appointmentId
-                    }
-                })
+                body: JSON.stringify(registrationData)
             });
 
             if (response.ok) {
                 const data = await response.json();
-                console.log('Registered with PeerJS server:', data);
+                console.log('Successfully registered with room server:', data);
+                setParticipants(data.participants || []);
 
-                // Try to connect to other participants
-                if (data.otherParticipants && data.otherParticipants.length > 0) {
-                    const otherPeer = data.otherParticipants[0]; // Connect to first available peer
-                    if (userRole === 'patient') {
-                        // Patient initiates the call
-                        makeCall(otherPeer.peerId);
+                const otherParticipants = data.otherParticipants || [];
+                console.log(`Found ${otherParticipants.length} other participants:`, otherParticipants);
+
+                if (otherParticipants.length > 0) {
+                    const recentParticipants = otherParticipants
+                        .filter(p => p.role !== userRole)
+                        .sort((a, b) => new Date(b.joinedAt) - new Date(a.joinedAt));
+
+                    if (userRole === 'patient' && recentParticipants.length > 0) {
+                        const doctor = recentParticipants.find(p => p.role === 'doctor');
+                        if (doctor) {
+                            console.log(`Patient will call doctor: ${doctor.peerId}`);
+                            setTimeout(() => {
+                                makeCall(doctor.peerId);
+                            }, 2000);
+                        }
+                    } else if (userRole === 'doctor') {
+                        console.log('Doctor registered, waiting for patient to initiate call');
                     }
+                } else {
+                    console.log('No other participants found, starting discovery...');
+                    startPeerDiscovery(currentRoomId);
                 }
+            } else {
+                const errorText = await response.text();
+                console.error('Failed to register with room server:', response.status, errorText);
+                handleError(`Room registration failed: ${response.status}`);
             }
         } catch (error) {
-            console.error('Error registering with PeerJS server:', error);
+            console.error('Error registering with room server:', error);
+            handleError(`Room registration error: ${error.message}`);
         }
     };
 
-    const discoverPeers = async () => {
-        try {
-            // Get room information from PeerJS server
-            const response = await fetch(`http://localhost:9000/api/rooms/${roomId}`);
+    const startPeerDiscovery = (currentRoomId) => {
+        if (!currentRoomId) {
+            console.error('Cannot start peer discovery without roomId');
+            setConnectionStatus('error');
+            setError('Room ID not available for peer discovery');
+            return;
+        }
 
-            if (response.ok) {
-                const roomData = await response.json();
-                console.log('Room data:', roomData);
+        console.log(`Starting peer discovery for room: ${currentRoomId}`);
 
-                // Find other participants
-                const otherParticipants = roomData.participants.filter(p =>
-                    p.name !== userName && p.role !== userRole
-                );
+        const discoveryInterval = setInterval(async () => {
+            try {
+                if (!peer || !peer.open) {
+                    console.log('Our peer is not ready during discovery, stopping...');
+                    clearInterval(discoveryInterval);
+                    return;
+                }
 
-                if (otherParticipants.length > 0) {
-                    console.log('Found other participants:', otherParticipants);
+                console.log(`Checking room ${currentRoomId} for participants...`);
+                const response = await fetch(`http://localhost:9000/api/rooms/${currentRoomId}`);
 
-                    // If we're a patient, initiate the call
-                    if (userRole === 'patient' && otherParticipants.some(p => p.role === 'doctor')) {
-                        const doctor = otherParticipants.find(p => p.role === 'doctor');
-                        if (doctor) {
-                            // Find the doctor's peer ID (would need to be stored/retrieved properly)
-                            // For now, we'll construct it based on the pattern
-                            const doctorPeerId = `${roomId}_doctor_${doctor.joinedAt?.replace(/[^\d]/g, '')}`;
-                            setTimeout(() => makeCall(doctorPeerId), 1000);
+                if (response.ok) {
+                    const roomData = await response.json();
+                    console.log('Room data:', roomData);
+
+                    const otherParticipants = roomData.participants?.filter(p =>
+                        p.peerId !== myPeerId && p.role !== userRole
+                    ) || [];
+
+                    console.log(`Discovery found ${otherParticipants.length} other participants`);
+
+                    if (otherParticipants.length > 0) {
+                        clearInterval(discoveryInterval);
+                        console.log('Found participants, stopping discovery');
+
+                        if (userRole === 'patient') {
+                            const doctor = otherParticipants.find(p => p.role === 'doctor');
+                            if (doctor) {
+                                console.log(`Found doctor: ${doctor.peerId}, initiating call...`);
+                                setTimeout(() => {
+                                    makeCall(doctor.peerId);
+                                }, 1000);
+                            }
+                        } else {
+                            console.log('Doctor found, waiting for patient to call');
                         }
                     }
                 } else {
-                    console.log('No other participants found, waiting...');
-                    // Retry peer discovery after a delay
-                    setTimeout(discoverPeers, 5000);
+                    console.error(`Discovery API error: ${response.status}`);
                 }
+            } catch (error) {
+                console.error('Error in peer discovery:', error);
             }
-        } catch (error) {
-            console.error('Error discovering peers:', error);
-            // Fallback to simulation for demo
-            simulatePeerDiscovery();
-        }
+        }, 3000);
+
+        // Stop discovery after 2 minutes
+        setTimeout(() => {
+            clearInterval(discoveryInterval);
+            if (!isCallActive) {
+                setConnectionStatus('waiting');
+                console.log('Peer discovery timeout - no participants found after 2 minutes');
+            }
+        }, 120000);
     };
 
-    const simulatePeerDiscovery = () => {
-        console.log('Using simulated peer discovery for demo...');
+    const makeCall = (targetPeerId, retryCount = 0) => {
+        const MAX_CALL_RETRIES = 3;
 
-        if (userRole === 'doctor') {
-            console.log('Doctor waiting for patient connection...');
-        } else {
-            console.log('Patient looking for doctor...');
-            // For demo, automatically "find" a doctor after delay
-            setTimeout(() => {
-                console.log('Simulated: Found doctor peer');
-                // In demo mode, we'll just mark as connected
-                setConnectionStatus('ready');
-            }, 3000);
-        }
-    };
-
-    const makeCall = (targetPeerId) => {
-        if (peer && localStreamRef.current && targetPeerId) {
-            console.log(`Calling ${targetPeerId}...`);
-            const outgoingCall = peer.call(targetPeerId, localStreamRef.current);
-
-            outgoingCall.on('stream', (remoteStream) => {
-                console.log('Received stream from callee');
-                if (remoteVideoRef.current) {
-                    remoteVideoRef.current.srcObject = remoteStream;
-                }
-                setIsCallActive(true);
+        const checkPeerReady = () => {
+            const isPeerReady = peer && !peer.destroyed && peer.open && myPeerId;
+            console.log('Peer readiness check:', {
+                hasPeer: !!peer,
+                peerDestroyed: peer ? peer.destroyed : 'N/A',
+                peerOpen: peer ? peer.open : 'N/A',
+                hasMyPeerId: !!myPeerId,
+                isReady: isPeerReady
             });
+            return isPeerReady;
+        };
 
-            outgoingCall.on('close', () => {
-                console.log('Call ended');
-                endCall();
-            });
+        if (!checkPeerReady()) {
+            console.log('Peer not ready yet, waiting...');
 
-            setCall(outgoingCall);
+            if (retryCount < MAX_CALL_RETRIES) {
+                setTimeout(() => {
+                    console.log(`Retrying call to ${targetPeerId} (attempt ${retryCount + 1})`);
+                    makeCall(targetPeerId, retryCount + 1);
+                }, 2000);
+            } else {
+                console.error('Peer never became ready after retries');
+                handleError('Peer connection not ready. Please refresh and try again.');
+            }
+            return;
         }
-    };
 
-    const endCall = async () => {
+        if (!localStreamRef.current) {
+            console.error('No local media stream available');
+            handleError('Camera/microphone not available. Please check permissions.');
+            return;
+        }
+
+        if (!targetPeerId) {
+            console.error('No target peer ID provided');
+            return;
+        }
+
+        if (isCallActive) {
+            console.log('Call already active, ignoring new call request');
+            return;
+        }
+
+        console.log(`Making call to ${targetPeerId} (attempt ${retryCount + 1}/${MAX_CALL_RETRIES + 1})`);
+        setIsConnecting(true);
+
         try {
-            // End call locally
-            if (call) {
-                call.close();
-                setCall(null);
-            }
+            const outgoingCall = peer.call(targetPeerId, localStreamRef.current);
+            setCall(outgoingCall);
 
-            if (localStreamRef.current) {
-                localStreamRef.current.getTracks().forEach(track => track.stop());
-            }
+            const callTimeout = setTimeout(() => {
+                console.error(`Call timeout for peer ${targetPeerId}`);
+                if (outgoingCall && !isCallActive) {
+                    outgoingCall.close();
 
-            // Unregister from PeerJS server
-            if (myPeerId && roomId) {
-                try {
-                    await fetch(`http://localhost:9000/api/rooms/${roomId}/leave`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ peerId: myPeerId })
-                    });
-                } catch (error) {
-                    console.error('Error unregistering from PeerJS server:', error);
-                }
-            }
-
-            if (peer) {
-                peer.destroy();
-            }
-
-            setIsCallActive(false);
-            setConnectionStatus('disconnected');
-
-            // End session on backend
-            if (sessionId) {
-                const token = localStorage.getItem('token');
-                await fetch(`http://localhost:5000/api/video/session/${sessionId}/end`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                    if (retryCount < MAX_CALL_RETRIES) {
+                        console.log(`Retrying call due to timeout...`);
+                        setTimeout(() => {
+                            makeCall(targetPeerId, retryCount + 1);
+                        }, 2000);
+                    } else {
+                        console.error(`Max retries reached for peer ${targetPeerId}`);
+                        setIsConnecting(false);
+                        handleError('Failed to connect after multiple attempts. The other participant may have disconnected.');
                     }
-                });
-            }
+                }
+            }, 10000);
 
-            if (onCallEnd) {
-                onCallEnd();
-            }
+            setupCallEventHandlers(outgoingCall, callTimeout);
+
         } catch (error) {
-            console.error('Error ending call:', error);
+            console.error('Error making call:', error);
+            setIsConnecting(false);
+
+            if (retryCount < MAX_CALL_RETRIES) {
+                console.log(`Retrying after error...`);
+                setTimeout(() => {
+                    makeCall(targetPeerId, retryCount + 1);
+                }, 2000);
+            } else {
+                handleError(`Failed to make call: ${error.message}`);
+            }
         }
     };
 
@@ -370,14 +600,88 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
         }
     };
 
-    // Simulate connecting to demonstrate UI
-    const simulateConnection = () => {
-        if (!isCallActive && peer && localStreamRef.current) {
-            // Simulate remote video for demo
-            setTimeout(() => {
-                setIsCallActive(true);
-                console.log('Simulated connection established');
-            }, 1000);
+    const handleCallEnd = () => {
+        setIsCallActive(false);
+        setIsConnecting(false);
+        if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = null;
+        }
+    };
+
+    const endCall = async () => {
+        try {
+            if (call) {
+                call.close();
+                setCall(null);
+            }
+
+            if (myPeerId && roomId) {
+                try {
+                    await fetch(`http://localhost:9000/api/rooms/${roomId}/leave`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ peerId: myPeerId })
+                    });
+                } catch (error) {
+                    console.error('Error unregistering from room server:', error);
+                }
+            }
+
+            if (sessionId) {
+                const token = localStorage.getItem('token');
+                await fetch(`http://localhost:5000/api/video/session/${sessionId}/end`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+            }
+
+            cleanup();
+
+            if (onCallEnd) {
+                onCallEnd();
+            }
+        } catch (error) {
+            console.error('Error ending call:', error);
+        }
+    };
+
+    const cleanup = () => {
+        if (localStreamRef.current) {
+            localStreamRef.current.getTracks().forEach(track => track.stop());
+        }
+
+        if (peerRef.current && !peerRef.current.destroyed) {
+            peerRef.current.destroy();
+        }
+
+        setIsCallActive(false);
+        setConnectionStatus('disconnected');
+        setPeer(null);
+    };
+
+    const handleError = (errorMessage) => {
+        setError(errorMessage);
+        setIsConnecting(false);
+        setConnectionStatus('error');
+    };
+
+    const getConnectionStatusDisplay = () => {
+        switch (connectionStatus) {
+            case 'connected':
+                return isCallActive ? 'In Call' : 'Connected - Waiting for other participant';
+            case 'connecting':
+                return 'Connecting...';
+            case 'error':
+                return 'Connection Error';
+            case 'waiting':
+                return 'Waiting for participants';
+            default:
+                return 'Disconnected';
         }
     };
 
@@ -405,15 +709,18 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
                 <div>
                     <h5 className="mb-0">Medical Consultation</h5>
                     <small className="opacity-75">
-                        {connectionStatus === 'connected' ? 'Connected' :
-                            connectionStatus === 'connecting' ? 'Connecting...' :
-                                connectionStatus === 'error' ? 'Connection Error' : 'Disconnected'}
+                        {getConnectionStatusDisplay()}
                     </small>
                 </div>
                 <div className="d-flex align-items-center gap-3">
-          <span className="badge bg-white text-dark px-3 py-2">
-            Room: {roomId || 'Loading...'}
-          </span>
+                    <span className="badge bg-white text-dark px-3 py-2">
+                        Room: {roomId || 'Loading...'}
+                    </span>
+                    {participants.length > 0 && (
+                        <span className="badge bg-success text-white px-3 py-2">
+                            {participants.length} participant{participants.length !== 1 ? 's' : ''}
+                        </span>
+                    )}
                     <button
                         className="btn btn-danger"
                         onClick={endCall}
@@ -430,12 +737,17 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
                 <div className="alert alert-danger m-3" role="alert">
                     <i className="fas fa-exclamation-triangle me-2"></i>
                     {error}
+                    <button
+                        className="btn btn-sm btn-outline-danger ms-3"
+                        onClick={() => window.location.reload()}
+                    >
+                        Reload
+                    </button>
                 </div>
             )}
 
             {/* Video Area */}
             <div className="video-area flex-grow-1 position-relative p-3">
-                {/* Remote Video (Main) */}
                 <div className="remote-video-container" style={{
                     width: '100%',
                     height: '100%',
@@ -464,19 +776,26 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
                                 <>
                                     <div className="spinner-border mb-3" role="status"></div>
                                     <p>Connecting to video call...</p>
+                                    <small className="text-muted">This may take a few moments</small>
+                                </>
+                            ) : connectionStatus === 'error' ? (
+                                <>
+                                    <i className="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                                    <p>Connection failed</p>
+                                    <button
+                                        className="btn btn-primary mt-3"
+                                        onClick={() => window.location.reload()}
+                                    >
+                                        <i className="fas fa-redo me-2"></i>Retry Connection
+                                    </button>
                                 </>
                             ) : (
                                 <>
                                     <i className="fas fa-user-circle fa-5x mb-3 opacity-50"></i>
                                     <p>Waiting for other participant to join...</p>
-                                    {/* Demo button */}
-                                    <button
-                                        className="btn btn-primary mt-3"
-                                        onClick={simulateConnection}
-                                    >
-                                        <i className="fas fa-video me-2"></i>
-                                        Simulate Connection (Demo)
-                                    </button>
+                                    <small className="text-muted">
+                                        Share the room ID: <strong>{roomId}</strong>
+                                    </small>
                                 </>
                             )}
                         </div>
@@ -485,7 +804,7 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
                     {/* Local Video (Picture-in-Picture) */}
                     <div style={{
                         position: 'absolute',
-                        bottom: '20px',
+                        bottom: '120px',
                         right: '20px',
                         width: '200px',
                         height: '150px',
@@ -503,7 +822,7 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
                                 width: '100%',
                                 height: '100%',
                                 objectFit: 'cover',
-                                transform: 'scaleX(-1)' // Mirror local video
+                                transform: 'scaleX(-1)'
                             }}
                         />
                         {!isVideoEnabled && (
@@ -538,13 +857,13 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
                 </div>
             </div>
 
-            {/* Controls */}
+            {/* Controls - Only Camera and Microphone */}
             <div className="video-controls" style={{
                 padding: '2rem',
                 background: 'rgba(0,0,0,0.8)',
                 display: 'flex',
                 justifyContent: 'center',
-                gap: '1rem'
+                gap: '2rem'
             }}>
                 <button
                     className={`btn ${isVideoEnabled ? 'btn-secondary' : 'btn-danger'} rounded-circle`}
@@ -563,30 +882,6 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
                 >
                     <i className={`fas ${isAudioEnabled ? 'fa-microphone' : 'fa-microphone-slash'} fa-lg`}></i>
                 </button>
-
-                <button
-                    className="btn btn-info rounded-circle"
-                    style={{ width: '60px', height: '60px' }}
-                    title="Chat"
-                >
-                    <i className="fas fa-comment fa-lg"></i>
-                </button>
-
-                <button
-                    className="btn btn-warning rounded-circle"
-                    style={{ width: '60px', height: '60px' }}
-                    title="Screen share"
-                >
-                    <i className="fas fa-desktop fa-lg"></i>
-                </button>
-
-                <button
-                    className="btn btn-success rounded-circle"
-                    style={{ width: '60px', height: '60px' }}
-                    title="Settings"
-                >
-                    <i className="fas fa-cog fa-lg"></i>
-                </button>
             </div>
 
             {/* Connection Info */}
@@ -603,7 +898,8 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
                 <div>Status: {connectionStatus}</div>
                 <div>My ID: {myPeerId || 'Generating...'}</div>
                 <div>Room: {roomId}</div>
-                {isCallActive && <div className="text-success">📹 Call Active</div>}
+                <div>Participants: {participants.length}</div>
+                {isCallActive && <div className="text-success">Call Active</div>}
             </div>
         </div>
     );

@@ -16,53 +16,37 @@ const DoctorDashboard = () => {
     const [showVideoModal, setShowVideoModal] = useState(false);
     const [selectedAppointmentForVideo, setSelectedAppointmentForVideo] = useState(null);
 
+    // Messages hook
     const {
         conversations,
         activeConversation,
         messages,
-        loading,
-        error,
+        loading: messagesLoading,
+        error: messagesError,
         sendMessage,
         uploadImage,
         selectConversation,
         getUnreadCount,
         clearError
     } = useMessages();
+
     const [newMessage, setNewMessage] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
     const [uploading, setUploading] = useState(false);
+
+    // Replace dummy data with real state
+    const [todayAppointments, setTodayAppointments] = useState([]);
+    const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+    const [patientsList, setPatientsList] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    // Schedule settings
     const [settings, setSettings] = useState({
         workingHours: { start: "09:00", end: "17:00" },
         workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
         consultationDuration: 30,
     });
-
-    useEffect(() => {
-    const fetchSettings = async () => {
-        try {
-        const res = await axios.get(
-            `http://localhost:5000/doctor/schedule-settings?doctorId=${localStorage.getItem("doctorId")}`
-        );
-        if (res.status === 200) setSettings(res.data);
-        } catch (err) {
-        console.log("No schedule settings found. Using default.");
-        }
-    };
-    fetchSettings();
-    }, []);
-
-    const saveSettings = async () => {
-    try {
-        await axios.post("http://localhost:5000/doctor/schedule-settings", {
-        doctorId: localStorage.getItem("doctorId"),
-        ...settings,
-        });
-        alert("Schedule settings saved!");
-    } catch (err) {
-        console.error("Failed to save schedule settings", err);
-        alert("Error saving settings.");
-    }
-    };
 
     useEffect(() => {
         // Get doctor's name from localStorage
@@ -71,9 +55,35 @@ const DoctorDashboard = () => {
             setDoctorName(`Dr. ${name}`);
         }
 
-        // Fetch doctor profile
+        // Fetch doctor profile and settings
         fetchDoctorProfile();
+        fetchSettings();
+        fetchDoctorData();
     }, []);
+
+    const fetchSettings = async () => {
+        try {
+            const res = await axios.get(
+                `http://localhost:5000/doctor/schedule-settings?doctorId=${localStorage.getItem("doctorId")}`
+            );
+            if (res.status === 200) setSettings(res.data);
+        } catch (err) {
+            console.log("No schedule settings found. Using default.");
+        }
+    };
+
+    const saveSettings = async () => {
+        try {
+            await axios.post("http://localhost:5000/doctor/schedule-settings", {
+                doctorId: localStorage.getItem("doctorId"),
+                ...settings,
+            });
+            alert("Schedule settings saved!");
+        } catch (err) {
+            console.error("Failed to save schedule settings", err);
+            alert("Error saving settings.");
+        }
+    };
 
     const fetchDoctorProfile = async () => {
         try {
@@ -87,6 +97,38 @@ const DoctorDashboard = () => {
         }
     };
 
+    const fetchDoctorData = async () => {
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('token');
+            const doctorId = localStorage.getItem('doctorId');
+
+            // Fetch real data from APIs
+            const [appointmentsRes, patientsRes, profileRes] = await Promise.all([
+                axios.get(`http://localhost:5000/api/doctor/${doctorId}/appointments/today`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                }),
+                axios.get(`http://localhost:5000/api/doctor/${doctorId}/patients`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                }),
+                axios.get('http://localhost:5000/api/doctor/profile', {
+                    headers: { Authorization: `Bearer ${token}` }
+                })
+            ]);
+
+            setTodayAppointments(appointmentsRes.data.today || []);
+            setUpcomingAppointments(appointmentsRes.data.upcoming || []);
+            setPatientsList(patientsRes.data || []);
+            setDoctorProfile(profileRes.data);
+
+        } catch (error) {
+            console.error('Error fetching doctor data:', error);
+            setError('Failed to load dashboard data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Video consultation handlers
     const handleStartVideoConsultation = (appointment) => {
         setSelectedAppointmentForVideo(appointment);
@@ -97,115 +139,6 @@ const DoctorDashboard = () => {
         setShowVideoModal(false);
         setSelectedAppointmentForVideo(null);
     };
-
-    // Dynamic doctor data
-    const doctorData = {
-        name: doctorName,
-        specialty: doctorProfile?.specialization || "Not specified",
-        email: doctorProfile?.email || localStorage.getItem('email') || "Not specified",
-        phone: doctorProfile?.contactNumber || "Not specified",
-        license: doctorProfile?.medicalLicense || "Not specified",
-        experience: doctorProfile?.experience ? `${doctorProfile.experience} years` : "Not specified",
-        rating: 4.8,
-        totalPatients: 342
-    };
-
-    const todaySchedule = [
-        {
-            id: 1,
-            patient: "Sarah Johnson",
-            time: "09:00 AM",
-            duration: "30 mins",
-            type: "Video Consultation",
-            status: "upcoming",
-            reason: "Follow-up Cardiology",
-            avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face"
-        },
-        {
-            id: 2,
-            patient: "Michael Smith",
-            time: "10:30 AM",
-            duration: "45 mins",
-            type: "In-Person Visit",
-            status: "in-progress",
-            reason: "Chest Pain Evaluation",
-            avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face"
-        },
-        {
-            id: 3,
-            patient: "Lisa Davis",
-            time: "02:00 PM",
-            duration: "30 mins",
-            type: "Video Consultation",
-            status: "upcoming",
-            reason: "Blood Pressure Review",
-            avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face"
-        },
-        {
-            id: 4,
-            patient: "Robert Wilson",
-            time: "03:30 PM",
-            duration: "60 mins",
-            type: "In-Person Visit",
-            status: "upcoming",
-            reason: "Cardiac Stress Test",
-            avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face"
-        }
-    ];
-
-    const upcomingAppointments = [
-        {
-            id: 5,
-            patient: "Emma Thompson",
-            date: "2025-06-27",
-            time: "11:00 AM",
-            type: "Video Consultation",
-            reason: "Post-surgery Follow-up",
-            avatar: "https://images.unsplash.com/photo-1554151228-14d9def656e4?w=100&h=100&fit=crop&crop=face"
-        },
-        {
-            id: 6,
-            patient: "James Wilson",
-            date: "2025-06-28",
-            time: "09:30 AM",
-            type: "In-Person Visit",
-            reason: "Initial Consultation",
-            avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face"
-        }
-    ];
-
-    const patientsList = [
-        {
-            id: 1,
-            name: "Sarah Johnson",
-            age: 38,
-            gender: "Female",
-            lastVisit: "2025-06-20",
-            condition: "Hypertension",
-            status: "Stable",
-            avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face"
-        },
-        {
-            id: 2,
-            name: "Michael Smith",
-            age: 45,
-            gender: "Male",
-            lastVisit: "2025-06-22",
-            condition: "Arrhythmia",
-            status: "Monitoring",
-            avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face"
-        },
-        {
-            id: 3,
-            name: "Lisa Davis",
-            age: 52,
-            gender: "Female",
-            lastVisit: "2025-06-18",
-            condition: "High Cholesterol",
-            status: "Improving",
-            avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face"
-        }
-    ];
 
     // Handle image selection
     const handleImageSelect = (e) => {
@@ -266,385 +199,158 @@ const DoctorDashboard = () => {
         }
     };
 
+    // Dynamic doctor data from API instead of dummy data
+    const doctorData = {
+        name: doctorName,
+        specialty: doctorProfile?.specialization || "Not specified",
+        email: doctorProfile?.email || localStorage.getItem('email') || "Not specified",
+        phone: doctorProfile?.contactNumber || "Not specified",
+        license: doctorProfile?.medicalLicense || "Not specified",
+        experience: doctorProfile?.experience ? `${doctorProfile.experience} years` : "Not specified",
+        rating: doctorProfile?.rating || 0,
+        totalPatients: patientsList.length
+    };
+
     const renderOverview = () => (
         <div className="row g-3 g-md-4">
-            {/* Quick Stats */}
-            <div className="col-12">
-                <div className="row g-3">
-                    <div className="col-6 col-lg-3">
-                        <div className="card stat-card text-white h-100" style={{
-                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                            border: 'none',
-                            borderRadius: '15px',
-                            boxShadow: '0 8px 25px rgba(102, 126, 234, 0.3)',
-                            transform: 'translateY(0)',
-                            transition: 'all 0.3s ease'
-                        }}>
-                            <div className="card-body text-center p-3">
-                                <div className="mb-3" style={{
-                                    background: 'rgba(255,255,255,0.2)',
-                                    borderRadius: '50%',
-                                    width: '60px',
-                                    height: '60px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    margin: '0 auto'
-                                }}>
-                                    <i className="fas fa-calendar-day" style={{ fontSize: '1.5rem' }}></i>
-                                </div>
-                                <h3 className="mb-1 fw-bold">{todaySchedule.length}</h3>
-                                <p className="mb-0 small opacity-75">Today's Appointments</p>
-                            </div>
-                        </div>
+            {/* Loading state */}
+            {loading && (
+                <div className="col-12 text-center">
+                    <div className="spinner-border" role="status">
+                        <span className="visually-hidden">Loading...</span>
                     </div>
-                    <div className="col-6 col-lg-3">
-                        <div className="card stat-card text-white h-100" style={{
-                            background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-                            border: 'none',
-                            borderRadius: '15px',
-                            boxShadow: '0 8px 25px rgba(17, 153, 142, 0.3)',
-                            transform: 'translateY(0)',
-                            transition: 'all 0.3s ease'
-                        }}>
-                            <div className="card-body text-center p-3">
-                                <div className="mb-3" style={{
-                                    background: 'rgba(255,255,255,0.2)',
-                                    borderRadius: '50%',
-                                    width: '60px',
-                                    height: '60px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    margin: '0 auto'
-                                }}>
-                                    <i className="fas fa-users" style={{ fontSize: '1.5rem' }}></i>
-                                </div>
-                                <h3 className="mb-1 fw-bold">{doctorData.totalPatients}</h3>
-                                <p className="mb-0 small opacity-75">Total Patients</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="col-6 col-lg-3">
-                        <div className="card stat-card text-white h-100" style={{
-                            background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                            border: 'none',
-                            borderRadius: '15px',
-                            boxShadow: '0 8px 25px rgba(79, 172, 254, 0.3)',
-                            transform: 'translateY(0)',
-                            transition: 'all 0.3s ease'
-                        }}>
-                            <div className="card-body text-center p-3">
-                                <div className="mb-3" style={{
-                                    background: 'rgba(255,255,255,0.2)',
-                                    borderRadius: '50%',
-                                    width: '60px',
-                                    height: '60px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    margin: '0 auto'
-                                }}>
-                                    <i className="fas fa-comments" style={{ fontSize: '1.5rem' }}></i>
-                                </div>
-                                <h3 className="mb-1 fw-bold">{getUnreadCount()}</h3>
-                                <p className="mb-0 small opacity-75">New Messages</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="col-6 col-lg-3">
-                        <div className="card stat-card text-white h-100" style={{
-                            background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-                            border: 'none',
-                            borderRadius: '15px',
-                            boxShadow: '0 8px 25px rgba(250, 112, 154, 0.3)',
-                            transform: 'translateY(0)',
-                            transition: 'all 0.3s ease'
-                        }}>
-                            <div className="card-body text-center p-3">
-                                <div className="mb-3" style={{
-                                    background: 'rgba(255,255,255,0.2)',
-                                    borderRadius: '50%',
-                                    width: '60px',
-                                    height: '60px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    margin: '0 auto'
-                                }}>
-                                    <i className="fas fa-star" style={{ fontSize: '1.5rem' }}></i>
-                                </div>
-                                <h3 className="mb-1 fw-bold">{doctorData.rating}</h3>
-                                <p className="mb-0 small opacity-75">Average Rating</p>
-                            </div>
-                        </div>
+                    <p className="mt-2">Loading dashboard data...</p>
+                </div>
+            )}
+
+            {/* Error state */}
+            {error && (
+                <div className="col-12">
+                    <div className="alert alert-danger" role="alert">
+                        {error}
+                        <button
+                            className="btn btn-sm btn-outline-danger ms-2"
+                            onClick={fetchDoctorData}
+                        >
+                            Retry
+                        </button>
                     </div>
                 </div>
-            </div>
+            )}
 
-            {/* Today's Schedule and Sidebar */}
-            <div className="col-12 col-xl-8">
-                <div className="card h-100" style={{
-                    border: 'none',
-                    borderRadius: '20px',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-                    background: 'white'
-                }}>
-                    <div className="card-header d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2" style={{
-                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                        borderRadius: '20px 20px 0 0',
-                        border: 'none',
-                        padding: '1.5rem'
-                    }}>
-                        <h5 className="mb-0 fw-bold text-dark">Today's Schedule</h5>
-                        <span className="badge text-white px-3 py-2" style={{
-                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                            borderRadius: '20px',
-                            fontSize: '0.85rem'
-                        }}>{new Date().toLocaleDateString()}</span>
-                    </div>
-                    <div className="card-body p-4">
+            {/* Quick Stats - using real data */}
+            {!loading && !error && (
+                <>
+                    <div className="col-12">
                         <div className="row g-3">
-                            {todaySchedule.map(appointment => (
-                                <div key={appointment.id} className="col-12">
-                                    <div className="d-flex flex-column flex-sm-row align-items-start align-items-sm-center appointment-card p-3 border rounded gap-3" style={{
-                                        borderRadius: '15px',
-                                        border: '1px solid #e9ecef',
-                                        background: '#fafbfc',
-                                        transition: 'all 0.3s ease'
-                                    }}>
-                                        <div className="text-center">
-                                            <div className="bg-white rounded-3 p-2 shadow-sm" style={{ minWidth: '70px' }}>
-                                                <strong className="d-block text-primary">{appointment.time.split(' ')[0]}</strong>
-                                                <small className="text-muted">{appointment.time.split(' ')[1]}</small>
-                                            </div>
+                            <div className="col-6 col-lg-3">
+                                <div className="card stat-card text-white h-100" style={{
+                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    border: 'none',
+                                    borderRadius: '15px',
+                                    boxShadow: '0 8px 25px rgba(102, 126, 234, 0.3)'
+                                }}>
+                                    <div className="card-body text-center p-3">
+                                        <div className="mb-3" style={{
+                                            background: 'rgba(255,255,255,0.2)',
+                                            borderRadius: '50%',
+                                            width: '60px',
+                                            height: '60px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            margin: '0 auto'
+                                        }}>
+                                            <i className="fas fa-calendar-day" style={{ fontSize: '1.5rem' }}></i>
                                         </div>
-                                        <img
-                                            src={appointment.avatar}
-                                            alt={appointment.patient}
-                                            className="rounded-circle border border-white"
-                                            style={{
-                                                width: '50px',
-                                                height: '50px',
-                                                objectFit: 'cover',
-                                                boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
-                                            }}
-                                        />
-                                        <div className="flex-grow-1">
-                                            <h6 className="mb-1 fw-bold">{appointment.patient}</h6>
-                                            <p className="mb-1 text-muted small">{appointment.reason}</p>
-                                            <small className="text-muted">
-                                                <i className={`fas ${appointment.type === 'Video Consultation' ? 'fa-video' : 'fa-hospital'} me-1 text-primary`}></i>
-                                                {appointment.type} • {appointment.duration}
-                                            </small>
-                                        </div>
-                                        <div className="d-flex flex-column align-items-center gap-2">
-                                            <span className={`badge px-3 py-1 ${
-                                                appointment.status === 'upcoming' ? 'text-white' :
-                                                    appointment.status === 'in-progress' ? 'text-white' : 'text-white'
-                                            }`} style={{
-                                                background: appointment.status === 'upcoming' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' :
-                                                    appointment.status === 'in-progress' ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' :
-                                                        'linear-gradient(135deg, #6c757d 0%, #495057 100%)',
-                                                borderRadius: '20px'
-                                            }}>
-                                                {appointment.status}
-                                            </span>
-                                            <div className="btn-group-sm d-flex gap-1">
-                                                <button
-                                                    className="btn btn-sm"
-                                                    onClick={() => handleStartVideoConsultation({
-                                                        id: appointment.id,
-                                                        patient_name: appointment.patient,
-                                                        doctor_name: doctorName,
-                                                        date: new Date().toISOString().split('T')[0],
-                                                        time: appointment.time,
-                                                        type: appointment.type
-                                                    })}
-                                                    style={{
-                                                        background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-                                                        border: 'none',
-                                                        borderRadius: '8px',
-                                                        color: 'white',
-                                                        padding: '6px 12px'
-                                                    }}
-                                                    title="Start video consultation"
-                                                >
-                                                    <i className="fas fa-video"></i>
-                                                </button>
-                                                <button className="btn btn-outline-secondary btn-sm" style={{
-                                                    borderRadius: '8px',
-                                                    padding: '6px 12px'
-                                                }}>
-                                                    <i className="fas fa-user-md"></i>
-                                                </button>
-                                            </div>
-                                        </div>
+                                        <h3 className="mb-1 fw-bold">{todayAppointments.length}</h3>
+                                        <p className="mb-0 small opacity-75">Today's Appointments</p>
                                     </div>
                                 </div>
-                            ))}
+                            </div>
+                            <div className="col-6 col-lg-3">
+                                <div className="card stat-card text-white h-100" style={{
+                                    background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                                    border: 'none',
+                                    borderRadius: '15px',
+                                    boxShadow: '0 8px 25px rgba(17, 153, 142, 0.3)'
+                                }}>
+                                    <div className="card-body text-center p-3">
+                                        <div className="mb-3" style={{
+                                            background: 'rgba(255,255,255,0.2)',
+                                            borderRadius: '50%',
+                                            width: '60px',
+                                            height: '60px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            margin: '0 auto'
+                                        }}>
+                                            <i className="fas fa-users" style={{ fontSize: '1.5rem' }}></i>
+                                        </div>
+                                        <h3 className="mb-1 fw-bold">{doctorData.totalPatients}</h3>
+                                        <p className="mb-0 small opacity-75">Total Patients</p>
+                                    </div>
+                                </div>
+                            </div>
+                            {/* Add more stat cards with real data */}
                         </div>
                     </div>
-                </div>
-            </div>
 
-            <div className="col-12 col-xl-4">
-                <div className="row g-3">
-                    {/* Quick Actions */}
-                    <div className="col-12 col-md-6 col-xl-12">
+                    {/* Today's Schedule using real data */}
+                    <div className="col-12 col-xl-8">
                         <div className="card h-100" style={{
                             border: 'none',
                             borderRadius: '20px',
-                            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-                            background: 'white'
+                            boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
                         }}>
-                            <div className="card-header" style={{
-                                background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                                borderRadius: '20px 20px 0 0',
-                                border: 'none',
-                                padding: '1.5rem 1.5rem 1rem'
-                            }}>
-                                <h6 className="mb-0 fw-bold text-dark">Quick Actions</h6>
+                            <div className="card-header">
+                                <h5 className="mb-0 fw-bold text-dark">Today's Schedule</h5>
                             </div>
                             <div className="card-body p-4">
-                                <div className="d-grid gap-3">
-                                    <button className="btn text-white fw-semibold" style={{
-                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                        border: 'none',
-                                        borderRadius: '12px',
-                                        padding: '12px 20px',
-                                        boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)'
-                                    }}>
-                                        <i className="fas fa-plus me-2"></i>Add Appointment
-                                    </button>
-                                    <button
-                                        className="btn fw-semibold"
-                                        onClick={() => handleStartVideoConsultation({
-                                            id: 'emergency',
-                                            patient_name: 'Emergency Consultation',
-                                            doctor_name: doctorName,
-                                            date: new Date().toISOString().split('T')[0],
-                                            time: new Date().toLocaleTimeString(),
-                                            type: 'Emergency Video Consultation'
-                                        })}
-                                        style={{
-                                            background: 'linear-gradient(135deg, rgba(17, 153, 142, 0.1) 0%, rgba(56, 239, 125, 0.1) 100%)',
-                                            border: '1px solid rgba(17, 153, 142, 0.3)',
-                                            borderRadius: '12px',
-                                            padding: '12px 20px',
-                                            color: '#11998e'
-                                        }}
-                                    >
-                                        <i className="fas fa-video me-2"></i>Start Consultation
-                                    </button>
-                                    <button className="btn fw-semibold" style={{
-                                        background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
-                                        border: '1px solid rgba(102, 126, 234, 0.3)',
-                                        borderRadius: '12px',
-                                        padding: '12px 20px',
-                                        color: '#667eea'
-                                    }}>
-                                        <i className="fas fa-calendar-alt me-2"></i>Manage Schedule
-                                    </button>
-                                    <button className="btn fw-semibold" style={{
-                                        background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
-                                        border: '1px solid rgba(102, 126, 234, 0.3)',
-                                        borderRadius: '12px',
-                                        padding: '12px 20px',
-                                        color: '#667eea'
-                                    }}>
-                                        <i className="fas fa-user-plus me-2"></i>Add Patient
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Recent Messages */}
-                    <div className="col-12 col-md-6 col-xl-12">
-                        <div className="card h-100" style={{
-                            border: 'none',
-                            borderRadius: '20px',
-                            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-                            background: 'white'
-                        }}>
-                            <div className="card-header" style={{
-                                background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                                borderRadius: '20px 20px 0 0',
-                                border: 'none',
-                                padding: '1.5rem 1.5rem 1rem'
-                            }}>
-                                <h6 className="mb-0 fw-bold text-dark">Recent Messages</h6>
-                            </div>
-                            <div className="card-body p-3">
-                                {loading ? (
-                                    <div className="text-center py-3">
-                                        <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                        <p className="small text-muted mt-2">Loading messages...</p>
-                                    </div>
-                                ) : conversations.length === 0 ? (
-                                    <div className="text-center py-3">
-                                        <p className="text-muted">No conversations yet</p>
+                                {todayAppointments.length === 0 ? (
+                                    <div className="text-center py-4">
+                                        <i className="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                                        <p className="text-muted">No appointments scheduled for today</p>
                                     </div>
                                 ) : (
-                                    conversations.slice(0, 3).map(conversation => (
-                                        <div key={conversation.id} className={`d-flex align-items-start message-item p-3 rounded mb-2`} style={{
-                                            background: conversation.unread_count > 0 ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)' : 'transparent',
-                                            borderRadius: '12px',
-                                            border: conversation.unread_count > 0 ? '1px solid rgba(102, 126, 234, 0.1)' : '1px solid transparent',
-                                            cursor: 'pointer'
-                                        }}
-                                             onClick={() => {
-                                                 selectConversation(conversation);
-                                                 setActiveTab('messages');
-                                             }}>
-                                            <div className="rounded-circle me-3 flex-shrink-0 d-flex align-items-center justify-content-center" style={{
-                                                width: '35px',
-                                                height: '35px',
-                                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                color: 'white'
-                                            }}>
-                                                <i className="fas fa-user"></i>
+                                    <div className="row g-3">
+                                        {todayAppointments.map(appointment => (
+                                            <div key={appointment._id || appointment.id} className="col-12">
+                                                <div className="d-flex align-items-center appointment-card p-3 border rounded">
+                                                    <div className="text-center me-3">
+                                                        <div className="bg-white rounded-3 p-2 shadow-sm">
+                                                            <strong className="d-block text-primary">
+                                                                {new Date(appointment.datetime || appointment.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                            </strong>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex-grow-1">
+                                                        <h6 className="mb-1 fw-bold">{appointment.patientName || appointment.patient}</h6>
+                                                        <p className="mb-1 text-muted small">{appointment.reason || 'Consultation'}</p>
+                                                        <small className="text-muted">
+                                                            <i className="fas fa-video me-1 text-primary"></i>
+                                                            {appointment.type || 'Video Consultation'} • {appointment.duration || '30'} mins
+                                                        </small>
+                                                    </div>
+                                                    <div className="d-flex gap-2">
+                                                        <button className="btn btn-sm btn-success">
+                                                            <i className="fas fa-video"></i>
+                                                        </button>
+                                                        <button className="btn btn-outline-secondary btn-sm">
+                                                            <i className="fas fa-user-md"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="flex-grow-1 min-w-0" style={{ width: '0', overflow: 'hidden' }}>
-                                                <h6 className="mb-1 fs-6 fw-semibold">{conversation.other_user_name}</h6>
-                                                <p className="mb-1 small text-muted" style={{
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                    width: '100%'
-                                                }}>
-                                                    {conversation.last_message || 'Start a conversation'}
-                                                </p>
-                                                <small className="text-muted">
-                                                    {messageService.formatTime(conversation.last_message_time)}
-                                                </small>
-                                            </div>
-                                            {conversation.unread_count > 0 && (
-                                                <span className="flex-shrink-0" style={{
-                                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                    width: '8px',
-                                                    height: '8px',
-                                                    borderRadius: '50%'
-                                                }}></span>
-                                            )}
-                                        </div>
-                                    ))
+                                        ))}
+                                    </div>
                                 )}
-                                <button
-                                    className="btn btn-sm w-100 mt-3 fw-semibold"
-                                    onClick={() => setActiveTab('messages')}
-                                    style={{
-                                        background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
-                                        border: '1px solid rgba(102, 126, 234, 0.3)',
-                                        borderRadius: '10px',
-                                        color: '#667eea'
-                                    }}>View All</button>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
+                </>
+            )}
         </div>
     );
 
@@ -666,67 +372,61 @@ const DoctorDashboard = () => {
                         <h5 className="mb-0">Today's Appointments - {new Date().toLocaleDateString()}</h5>
                     </div>
                     <div className="card-body">
-                        <div className="row g-3">
-                            {todaySchedule.map(appointment => (
-                                <div key={appointment.id} className="col-12">
-                                    <div className="row align-items-center p-3 border rounded g-3">
-                                        <div className="col-12 col-sm-2 text-center">
-                                            <strong className="d-block">{appointment.time}</strong>
-                                            <small className="text-muted">{appointment.duration}</small>
-                                        </div>
-                                        <div className="col-12 col-sm-2 text-center">
-                                            <img
-                                                src={appointment.avatar}
-                                                alt={appointment.patient}
-                                                className="rounded-circle"
-                                                style={{ width: '60px', height: '60px', objectFit: 'cover' }}
-                                            />
-                                        </div>
-                                        <div className="col-12 col-sm-4">
-                                            <h6 className="mb-1">{appointment.patient}</h6>
-                                            <p className="mb-1 text-muted small">{appointment.reason}</p>
-                                            <span className={`badge ${appointment.type === 'Video Consultation' ? 'bg-info' : 'bg-success'}`}>
-                                                {appointment.type}
-                                            </span>
-                                        </div>
-                                        <div className="col-12 col-sm-2 text-center">
-                                            <span className={`badge ${
-                                                appointment.status === 'upcoming' ? 'bg-primary' :
-                                                    appointment.status === 'in-progress' ? 'bg-success' : 'bg-secondary'
-                                            }`}>
-                                                {appointment.status}
-                                            </span>
-                                        </div>
-                                        <div className="col-12 col-sm-2">
-                                            <div className="d-grid gap-1">
-                                                <button
-                                                    className="btn btn-sm"
-                                                    onClick={() => handleStartVideoConsultation({
-                                                        id: appointment.id,
-                                                        patient_name: appointment.patient,
-                                                        doctor_name: doctorName,
-                                                        date: new Date().toISOString().split('T')[0],
-                                                        time: appointment.time,
-                                                        type: appointment.type
-                                                    })}
-                                                    style={{
-                                                        background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-                                                        border: 'none',
-                                                        borderRadius: '8px',
-                                                        color: 'white'
-                                                    }}
-                                                >
-                                                    <i className="fas fa-video me-1"></i>Start Call
-                                                </button>
-                                                <button className="btn btn-outline-secondary btn-sm" style={{ borderRadius: '8px' }}>
-                                                    <i className="fas fa-edit me-1"></i>Edit
-                                                </button>
+                        {loading ? (
+                            <div className="text-center py-4">
+                                <div className="spinner-border" role="status"></div>
+                                <p className="mt-2">Loading appointments...</p>
+                            </div>
+                        ) : todayAppointments.length === 0 ? (
+                            <div className="text-center py-4">
+                                <i className="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                                <p className="text-muted">No appointments scheduled for today</p>
+                            </div>
+                        ) : (
+                            <div className="row g-3">
+                                {todayAppointments.map(appointment => (
+                                    <div key={appointment._id || appointment.id} className="col-12">
+                                        <div className="row align-items-center p-3 border rounded g-3">
+                                            <div className="col-12 col-sm-2 text-center">
+                                                <strong className="d-block">{appointment.time}</strong>
+                                                <small className="text-muted">{appointment.duration || '30 mins'}</small>
+                                            </div>
+                                            <div className="col-12 col-sm-4">
+                                                <h6 className="mb-1">{appointment.patientName}</h6>
+                                                <p className="mb-1 text-muted small">{appointment.reason || 'General consultation'}</p>
+                                                <span className="badge bg-info">Video Consultation</span>
+                                            </div>
+                                            <div className="col-12 col-sm-2">
+                                                <div className="d-grid gap-1">
+                                                    <button
+                                                        className="btn btn-sm"
+                                                        onClick={() => handleStartVideoConsultation({
+                                                            id: appointment._id || appointment.id,
+                                                            patient_name: appointment.patientName,
+                                                            doctor_name: doctorName,
+                                                            date: appointment.date,
+                                                            time: appointment.time,
+                                                            type: 'Video Consultation'
+                                                        })}
+                                                        style={{
+                                                            background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                                                            border: 'none',
+                                                            borderRadius: '8px',
+                                                            color: 'white'
+                                                        }}
+                                                    >
+                                                        <i className="fas fa-video me-1"></i>Start Call
+                                                    </button>
+                                                    <button className="btn btn-outline-secondary btn-sm">
+                                                        <i className="fas fa-edit me-1"></i>Edit
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -738,62 +438,59 @@ const DoctorDashboard = () => {
                         <h5 className="mb-0">Upcoming Appointments</h5>
                     </div>
                     <div className="card-body">
-                        <div className="row g-3">
-                            {upcomingAppointments.map(appointment => (
-                                <div key={appointment.id} className="col-12">
-                                    <div className="row align-items-center p-3 border rounded g-3">
-                                        <div className="col-12 col-sm-2 text-center">
-                                            <img
-                                                src={appointment.avatar}
-                                                alt={appointment.patient}
-                                                className="rounded-circle"
-                                                style={{ width: '60px', height: '60px', objectFit: 'cover' }}
-                                            />
-                                        </div>
-                                        <div className="col-12 col-sm-6">
-                                            <h6 className="mb-1">{appointment.patient}</h6>
-                                            <p className="mb-1 text-muted small">{appointment.reason}</p>
-                                            <p className="mb-1 small">
-                                                <i className="fas fa-calendar me-2"></i>
-                                                {appointment.date} at {appointment.time}
-                                            </p>
-                                            <span className={`badge ${appointment.type === 'Video Consultation' ? 'bg-info' : 'bg-success'}`}>
-                                                {appointment.type}
-                                            </span>
-                                        </div>
-                                        <div className="col-12 col-sm-4">
-                                            <div className="d-grid d-sm-flex gap-2">
-                                                <button
-                                                    className="btn btn-sm flex-fill"
-                                                    onClick={() => handleStartVideoConsultation({
-                                                        id: appointment.id,
-                                                        patient_name: appointment.patient,
-                                                        doctor_name: doctorName,
-                                                        date: appointment.date,
-                                                        time: appointment.time,
-                                                        type: appointment.type
-                                                    })}
-                                                    style={{
-                                                        background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-                                                        border: 'none',
-                                                        borderRadius: '8px',
-                                                        color: 'white'
-                                                    }}
-                                                >
-                                                    <i className="fas fa-video me-1"></i>Join
-                                                </button>
-                                                <button className="btn btn-outline-primary btn-sm flex-fill">
-                                                    <i className="fas fa-edit me-1"></i>Reschedule
-                                                </button>
-                                                <button className="btn btn-outline-danger btn-sm flex-fill">
-                                                    <i className="fas fa-times me-1"></i>Cancel
-                                                </button>
+                        {upcomingAppointments.length === 0 ? (
+                            <div className="text-center py-4">
+                                <i className="fas fa-calendar-plus fa-3x text-muted mb-3"></i>
+                                <p className="text-muted">No upcoming appointments</p>
+                            </div>
+                        ) : (
+                            <div className="row g-3">
+                                {upcomingAppointments.map(appointment => (
+                                    <div key={appointment._id || appointment.id} className="col-12">
+                                        <div className="row align-items-center p-3 border rounded g-3">
+                                            <div className="col-12 col-sm-6">
+                                                <h6 className="mb-1">{appointment.patientName}</h6>
+                                                <p className="mb-1 text-muted small">{appointment.reason || 'General consultation'}</p>
+                                                <p className="mb-1 small">
+                                                    <i className="fas fa-calendar me-2"></i>
+                                                    {appointment.date} at {appointment.time}
+                                                </p>
+                                                <span className="badge bg-info">Video Consultation</span>
+                                            </div>
+                                            <div className="col-12 col-sm-4">
+                                                <div className="d-grid d-sm-flex gap-2">
+                                                    <button
+                                                        className="btn btn-sm flex-fill"
+                                                        onClick={() => handleStartVideoConsultation({
+                                                            id: appointment._id || appointment.id,
+                                                            patient_name: appointment.patientName,
+                                                            doctor_name: doctorName,
+                                                            date: appointment.date,
+                                                            time: appointment.time,
+                                                            type: 'Video Consultation'
+                                                        })}
+                                                        style={{
+                                                            background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                                                            border: 'none',
+                                                            borderRadius: '8px',
+                                                            color: 'white'
+                                                        }}
+                                                    >
+                                                        <i className="fas fa-video me-1"></i>Join
+                                                    </button>
+                                                    <button className="btn btn-outline-primary btn-sm flex-fill">
+                                                        <i className="fas fa-edit me-1"></i>Reschedule
+                                                    </button>
+                                                    <button className="btn btn-outline-danger btn-sm flex-fill">
+                                                        <i className="fas fa-times me-1"></i>Cancel
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -832,20 +529,11 @@ const DoctorDashboard = () => {
                             <div className="col-6 col-md-2">
                                 <select className="form-select">
                                     <option>All Status</option>
-                                    <option>Stable</option>
-                                    <option>Monitoring</option>
-                                    <option>Critical</option>
+                                    <option>Active</option>
+                                    <option>Inactive</option>
                                 </select>
                             </div>
                             <div className="col-6 col-md-2">
-                                <select className="form-select">
-                                    <option>All Conditions</option>
-                                    <option>Hypertension</option>
-                                    <option>Diabetes</option>
-                                    <option>Heart Disease</option>
-                                </select>
-                            </div>
-                            <div className="col-12 col-md-2">
                                 <button className="btn btn-outline-secondary w-100">
                                     <i className="fas fa-filter me-1"></i>Filter
                                 </button>
@@ -862,68 +550,67 @@ const DoctorDashboard = () => {
                         <h5 className="mb-0">Patient Records</h5>
                     </div>
                     <div className="card-body">
-                        <div className="row g-3">
-                            {patientsList.map(patient => (
-                                <div key={patient.id} className="col-12">
-                                    <div className="row align-items-center p-3 border rounded g-3">
-                                        <div className="col-12 col-sm-2 text-center">
-                                            <img
-                                                src={patient.avatar}
-                                                alt={patient.name}
-                                                className="rounded-circle"
-                                                style={{ width: '70px', height: '70px', objectFit: 'cover' }}
-                                            />
-                                        </div>
-                                        <div className="col-12 col-sm-4">
-                                            <h6 className="mb-1">{patient.name}</h6>
-                                            <p className="mb-1 text-muted small">{patient.age} years • {patient.gender}</p>
-                                            <small className="text-muted">
-                                                <i className="fas fa-calendar me-1"></i>
-                                                Last visit: {patient.lastVisit}
-                                            </small>
-                                        </div>
-                                        <div className="col-12 col-sm-3">
-                                            <p className="mb-1 small"><strong>Condition:</strong> {patient.condition}</p>
-                                            <span className={`badge ${
-                                                patient.status === 'Stable' ? 'bg-success' :
-                                                    patient.status === 'Monitoring' ? 'bg-warning' : 'bg-danger'
-                                            }`}>
-                                                {patient.status}
-                                            </span>
-                                        </div>
-                                        <div className="col-12 col-sm-3">
-                                            <div className="d-grid gap-1">
-                                                <button className="btn btn-primary btn-sm">
-                                                    <i className="fas fa-eye me-1"></i>View Records
-                                                </button>
-                                                <button
-                                                    className="btn btn-sm"
-                                                    onClick={() => handleStartVideoConsultation({
-                                                        id: `patient_${patient.id}`,
-                                                        patient_name: patient.name,
-                                                        doctor_name: doctorName,
-                                                        date: new Date().toISOString().split('T')[0],
-                                                        time: new Date().toLocaleTimeString(),
-                                                        type: 'Video Consultation'
-                                                    })}
-                                                    style={{
-                                                        background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-                                                        border: 'none',
-                                                        borderRadius: '8px',
-                                                        color: 'white'
-                                                    }}
-                                                >
-                                                    <i className="fas fa-video me-1"></i>Start Call
-                                                </button>
-                                                <button className="btn btn-outline-secondary btn-sm">
-                                                    <i className="fas fa-message me-1"></i>Message
-                                                </button>
+                        {loading ? (
+                            <div className="text-center py-4">
+                                <div className="spinner-border" role="status"></div>
+                                <p className="mt-2">Loading patients...</p>
+                            </div>
+                        ) : patientsList.length === 0 ? (
+                            <div className="text-center py-4">
+                                <i className="fas fa-users fa-3x text-muted mb-3"></i>
+                                <p className="text-muted">No patients found</p>
+                            </div>
+                        ) : (
+                            <div className="row g-3">
+                                {patientsList.map(patient => (
+                                    <div key={patient._id || patient.id} className="col-12">
+                                        <div className="row align-items-center p-3 border rounded g-3">
+                                            <div className="col-12 col-sm-4">
+                                                <h6 className="mb-1">{patient.name}</h6>
+                                                <p className="mb-1 text-muted small">{patient.email}</p>
+                                                <small className="text-muted">
+                                                    <i className="fas fa-calendar me-1"></i>
+                                                    Last visit: {patient.lastVisit || 'Never'}
+                                                </small>
+                                            </div>
+                                            <div className="col-12 col-sm-3">
+                                                <p className="mb-1 small"><strong>Total Visits:</strong> {patient.totalVisits || 0}</p>
+                                                <span className="badge bg-success">Active</span>
+                                            </div>
+                                            <div className="col-12 col-sm-3">
+                                                <div className="d-grid gap-1">
+                                                    <button className="btn btn-primary btn-sm">
+                                                        <i className="fas fa-eye me-1"></i>View Records
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-sm"
+                                                        onClick={() => handleStartVideoConsultation({
+                                                            id: `patient_${patient._id || patient.id}`,
+                                                            patient_name: patient.name,
+                                                            doctor_name: doctorName,
+                                                            date: new Date().toISOString().split('T')[0],
+                                                            time: new Date().toLocaleTimeString(),
+                                                            type: 'Video Consultation'
+                                                        })}
+                                                        style={{
+                                                            background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                                                            border: 'none',
+                                                            borderRadius: '8px',
+                                                            color: 'white'
+                                                        }}
+                                                    >
+                                                        <i className="fas fa-video me-1"></i>Start Call
+                                                    </button>
+                                                    <button className="btn btn-outline-secondary btn-sm">
+                                                        <i className="fas fa-message me-1"></i>Message
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -942,123 +629,124 @@ const DoctorDashboard = () => {
                     <div className="card-header">
                         <h5 className="mb-0">Weekly Schedule</h5>
                     </div>
-                        <DoctorSchedule doctorId={localStorage.getItem("doctorId")} 
-                        settings={settings} 
+                    <DoctorSchedule
+                        doctorId={localStorage.getItem("doctorId")}
+                        settings={settings}
                         key={
                             settings.workingDays.join(",") +
                             settings.workingHours.start +
                             settings.workingHours.end +
                             settings.consultationDuration
-                        }/>
+                        }
+                    />
                 </div>
             </div>
 
             {/* Schedule Settings */}
             <div className="col-12 col-lg-4">
-            <div className="row g-3">
-                <div className="col-12">
-                <div className="card">
-                    <div className="card-header">
-                    <h6 className="mb-0">Schedule Settings</h6>
-                    </div>
-                    <div className="card-body">
-                    {/* Working Hours */}
-                    <div className="mb-3">
-                        <label className="form-label">Working Hours</label>
-                        <div className="row g-2">
-                        <div className="col-6">
-                            <input
-                            type="time"
-                            className="form-control"
-                            value={settings.workingHours.start}
-                            onChange={(e) =>
-                                setSettings((prev) => ({
-                                ...prev,
-                                workingHours: {
-                                    ...prev.workingHours,
-                                    start: e.target.value,
-                                },
-                                }))
-                            }
-                            />
-                        </div>
-                        <div className="col-6">
-                            <input
-                            type="time"
-                            className="form-control"
-                            value={settings.workingHours.end}
-                            onChange={(e) =>
-                                setSettings((prev) => ({
-                                ...prev,
-                                workingHours: {
-                                    ...prev.workingHours,
-                                    end: e.target.value,
-                                },
-                                }))
-                            }
-                            />
-                        </div>
-                        </div>
-                    </div>
-
-                    {/* Working Days */}
-                    <div className="mb-3">
-                        <label className="form-label">Working Days</label>
-                        {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(
-                        (day) => (
-                            <div className="form-check" key={day}>
-                            <input
-                                className="form-check-input"
-                                type="checkbox"
-                                checked={settings.workingDays.includes(day)}
-                                onChange={(e) => {
-                                const updatedDays = e.target.checked
-                                    ? [...settings.workingDays, day]
-                                    : settings.workingDays.filter((d) => d !== day);
-                                setSettings((prev) => ({
-                                    ...prev,
-                                    workingDays: updatedDays,
-                                }));
-                                }}
-                            />
-                            <label className="form-check-label">{day}</label>
+                <div className="row g-3">
+                    <div className="col-12">
+                        <div className="card">
+                            <div className="card-header">
+                                <h6 className="mb-0">Schedule Settings</h6>
                             </div>
-                        )
-                        )}
-                    </div>
+                            <div className="card-body">
+                                {/* Working Hours */}
+                                <div className="mb-3">
+                                    <label className="form-label">Working Hours</label>
+                                    <div className="row g-2">
+                                        <div className="col-6">
+                                            <input
+                                                type="time"
+                                                className="form-control"
+                                                value={settings.workingHours.start}
+                                                onChange={(e) =>
+                                                    setSettings((prev) => ({
+                                                        ...prev,
+                                                        workingHours: {
+                                                            ...prev.workingHours,
+                                                            start: e.target.value,
+                                                        },
+                                                    }))
+                                                }
+                                            />
+                                        </div>
+                                        <div className="col-6">
+                                            <input
+                                                type="time"
+                                                className="form-control"
+                                                value={settings.workingHours.end}
+                                                onChange={(e) =>
+                                                    setSettings((prev) => ({
+                                                        ...prev,
+                                                        workingHours: {
+                                                            ...prev.workingHours,
+                                                            end: e.target.value,
+                                                        },
+                                                    }))
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
 
-                    {/* Consultation Duration */}
-                    <div className="mb-3">
-                        <label className="form-label">Consultation Duration</label>
-                        <select
-                        className="form-select"
-                        value={settings.consultationDuration}
-                        onChange={(e) =>
-                            setSettings((prev) => ({
-                            ...prev,
-                            consultationDuration: parseInt(e.target.value),
-                            }))
-                        }
-                        >
-                        <option value="15">15 minutes</option>
-                        <option value="30">30 minutes</option>
-                        </select>
-                    </div>
+                                {/* Working Days */}
+                                <div className="mb-3">
+                                    <label className="form-label">Working Days</label>
+                                    {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(
+                                        (day) => (
+                                            <div className="form-check" key={day}>
+                                                <input
+                                                    className="form-check-input"
+                                                    type="checkbox"
+                                                    checked={settings.workingDays.includes(day)}
+                                                    onChange={(e) => {
+                                                        const updatedDays = e.target.checked
+                                                            ? [...settings.workingDays, day]
+                                                            : settings.workingDays.filter((d) => d !== day);
+                                                        setSettings((prev) => ({
+                                                            ...prev,
+                                                            workingDays: updatedDays,
+                                                        }));
+                                                    }}
+                                                />
+                                                <label className="form-check-label">{day}</label>
+                                            </div>
+                                        )
+                                    )}
+                                </div>
 
-                    {/* Save Button */}
-                    <button
-                        type="button"
-                        className="btn btn-primary w-100"
-                        onClick={saveSettings}
-                    >
-                        <i className="fas fa-save me-2"></i>Save Schedule
-                    </button>
+                                {/* Consultation Duration */}
+                                <div className="mb-3">
+                                    <label className="form-label">Consultation Duration</label>
+                                    <select
+                                        className="form-select"
+                                        value={settings.consultationDuration}
+                                        onChange={(e) =>
+                                            setSettings((prev) => ({
+                                                ...prev,
+                                                consultationDuration: parseInt(e.target.value),
+                                            }))
+                                        }
+                                    >
+                                        <option value="15">15 minutes</option>
+                                        <option value="30">30 minutes</option>
+                                    </select>
+                                </div>
+
+                                {/* Save Button */}
+                                <button
+                                    type="button"
+                                    className="btn btn-primary w-100"
+                                    onClick={saveSettings}
+                                >
+                                    <i className="fas fa-save me-2"></i>Save Schedule
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                </div>
             </div>
-            </div>
-
         </div>
     );
 
@@ -1066,9 +754,9 @@ const DoctorDashboard = () => {
         <div className="row g-3 g-md-4">
             <div className="col-12">
                 <h4>Patient Messages</h4>
-                {error && (
+                {messagesError && (
                     <div className="alert alert-danger alert-dismissible fade show" role="alert">
-                        {error}
+                        {messagesError}
                         <button type="button" className="btn-close" onClick={() => clearError()}></button>
                     </div>
                 )}
@@ -1089,7 +777,7 @@ const DoctorDashboard = () => {
                         <h5 className="mb-0 fw-bold text-dark">Conversations</h5>
                     </div>
                     <div className="card-body p-0">
-                        {loading ? (
+                        {messagesLoading ? (
                             <div className="text-center py-4">
                                 <div className="spinner-border" role="status"></div>
                                 <p className="text-muted mt-2">Loading conversations...</p>
@@ -1191,7 +879,7 @@ const DoctorDashboard = () => {
                                 </button>
                             </div>
                             <div className="card-body" style={{ height: '400px', overflowY: 'auto' }}>
-                                {loading ? (
+                                {messagesLoading ? (
                                     <div className="text-center py-4">
                                         <div className="spinner-border" role="status"></div>
                                         <p className="text-muted mt-2">Loading messages...</p>
@@ -1307,7 +995,7 @@ const DoctorDashboard = () => {
                                         <button
                                             type="submit"
                                             className="btn text-white"
-                                            disabled={(!newMessage.trim() && !selectedImage) || loading || uploading}
+                                            disabled={(!newMessage.trim() && !selectedImage) || messagesLoading || uploading}
                                             style={{
                                                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                                                 border: 'none'
@@ -1350,9 +1038,9 @@ const DoctorDashboard = () => {
                         <div className="card text-center h-100">
                             <div className="card-body">
                                 <i className="fas fa-users fa-2x text-primary mb-3"></i>
-                                <h4>342</h4>
+                                <h4>{doctorData.totalPatients}</h4>
                                 <p className="text-muted mb-1 small">Total Patients</p>
-                                <small className="text-success">+12% this month</small>
+                                <small className="text-success">Updated</small>
                             </div>
                         </div>
                     </div>
@@ -1360,9 +1048,9 @@ const DoctorDashboard = () => {
                         <div className="card text-center h-100">
                             <div className="card-body">
                                 <i className="fas fa-calendar-check fa-2x text-success mb-3"></i>
-                                <h4>156</h4>
-                                <p className="text-muted mb-1 small">Consultations</p>
-                                <small className="text-success">+8% this month</small>
+                                <h4>{todayAppointments.length + upcomingAppointments.length}</h4>
+                                <p className="text-muted mb-1 small">Total Appointments</p>
+                                <small className="text-success">Live data</small>
                             </div>
                         </div>
                     </div>
@@ -1370,26 +1058,26 @@ const DoctorDashboard = () => {
                         <div className="card text-center h-100">
                             <div className="card-body">
                                 <i className="fas fa-star fa-2x text-warning mb-3"></i>
-                                <h4>4.8</h4>
+                                <h4>{doctorData.rating}</h4>
                                 <p className="text-muted mb-1 small">Avg Rating</p>
-                                <small className="text-success">+0.2 this month</small>
+                                <small className="text-success">Current</small>
                             </div>
                         </div>
                     </div>
                     <div className="col-6 col-md-3">
                         <div className="card text-center h-100">
                             <div className="card-body">
-                                <i className="fas fa-dollar-sign fa-2x text-info mb-3"></i>
-                                <h4>$12,450</h4>
-                                <p className="text-muted mb-1 small">Revenue</p>
-                                <small className="text-success">+15% this month</small>
+                                <i className="fas fa-comments fa-2x text-info mb-3"></i>
+                                <h4>{getUnreadCount()}</h4>
+                                <p className="text-muted mb-1 small">Unread Messages</p>
+                                <small className="text-success">Live</small>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Charts */}
+            {/* Charts Placeholder */}
             <div className="col-12 col-lg-8">
                 <div className="card">
                     <div className="card-header">
