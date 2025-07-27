@@ -22,6 +22,11 @@ const PatientDashboard = () => {
   const [availabilitySlots, setAvailabilitySlots] = useState([]);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityDoctorId, setAvailabilityDoctorId] = useState(null);
+  
+  const [availabilityDoctorName, setAvailabilityDoctorName] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+
 
   const navigate = useNavigate();
   const {
@@ -66,17 +71,65 @@ const PatientDashboard = () => {
     allDay: false,
   }));
 
-  const handleEventClick = ({ event }) => {
-    const start = event.start.toISOString();
-    const end = event.end.toISOString();
-    navigate(
-      `/book-appointment/${availabilityDoctorId}?start=${start}&end=${end}`
-    );
-  };
+  const confirmBookingHandler = async () => {
+  if (!selectedEvent) return;
 
-  const fetchDoctorAvailability = async (doctorUserId) => {
+  const startUTC = selectedEvent.start.toISOString();
+  const endUTC = selectedEvent.end.toISOString();
+
+  try {
+    const token = localStorage.getItem('token');
+    const doctorId = availabilityDoctorId;
+    const doctorName = availabilityDoctorName;
+
+    const startDate = new Date(startUTC);
+    const dateStr = startDate.toISOString().split('T')[0];
+    const timeStr = startDate.toISOString().substring(11, 16);
+
+    const response = await fetch(`http://localhost:5000/api/book`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        date: dateStr,
+        time: timeStr,
+        doctorId,
+        doctorName,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Booking request failed');
+    }
+
+    alert('Appointment booked! Confirmation email sent.');
+    setActiveTab("Overview");
+  } catch (err) {
+    console.error('Booking error:', err);
+    alert('Failed to book appointment. Please try again.');
+  } finally {
+    setShowConfirmModal(false);
+    setSelectedEvent(null);
+  }
+};
+
+
+const handleEventClick = ({ event }) => {
+  setSelectedEvent(event);
+  setShowConfirmModal(true);
+};
+
+
+
+
+  const fetchDoctorAvailability = async (doctorUserId, doctorname) => {
     setAvailabilityLoading(true);
     setAvailabilityDoctorId(doctorUserId);
+    setAvailabilityDoctorName(doctorname);
     setActiveTab("availability");
     try {
       const token = localStorage.getItem("token");
@@ -801,7 +854,7 @@ const PatientDashboard = () => {
                     <div className="d-flex gap-2">
                       <button
                         className="btn btn-outline-success btn-sm"
-                        onClick={() => fetchDoctorAvailability(doctor._id)}
+                        onClick={() => fetchDoctorAvailability(doctor._id, doctor.name)}
                       >
                         <i className="fas fa-clock me-1"></i> View Availability
                       </button>
@@ -1488,6 +1541,33 @@ const PatientDashboard = () => {
           appointmentData={selectedAppointmentForVideo}
         />
       )}
+
+      {selectedEvent && (
+  <div className={`modal fade ${showConfirmModal ? 'show d-block' : ''}`} tabIndex="-1" role="dialog" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+    <div className="modal-dialog" role="document">
+      <div className="modal-content">
+        <div className="modal-header">
+          <h5 className="modal-title">Confirm Appointment</h5>
+          <button type="button" className="btn-close" aria-label="Close" onClick={() => setShowConfirmModal(false)}></button>
+        </div>
+        <div className="modal-body">
+          <p>
+            Are you sure you want to book an appointment from:
+            <br />
+            <strong>{new Date(selectedEvent.start).toUTCString()}</strong>
+            <br />to<br />
+            <strong>{new Date(selectedEvent.end).toUTCString()}</strong>?
+          </p>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={() => setShowConfirmModal(false)}>Cancel</button>
+          <button type="button" className="btn btn-primary" onClick={confirmBookingHandler}>Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 };

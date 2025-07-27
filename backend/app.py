@@ -1213,6 +1213,18 @@ def get_appointment_video_session(current_user, appointment_id):
     except Exception as e:
         print(f"Error getting appointment video session: {e}")
         return jsonify({"error": "Failed to get video session"}), 500
+@app.route('/api/appointments', methods=['GET'])
+@token_required
+def get_appointments(current_user):
+    user_email = current_user['email']
+    appointments = list(appointments_collection.find({"patientEmail": user_email}))
+    
+    # Convert ObjectId to string for frontend
+    for appt in appointments:
+        appt['_id'] = str(appt['_id'])
+
+    return jsonify({"appointments": appointments}), 200
+
 
 
 if __name__ == "__main__":
