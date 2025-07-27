@@ -26,6 +26,7 @@ const DoctorDashboard = () => {
         sendMessage,
         uploadImage,
         selectConversation,
+        startConversation,
         getUnreadCount,
         clearError
     } = useMessages();
@@ -232,6 +233,46 @@ const DoctorDashboard = () => {
             console.error('Error sending message:', error);
         } finally {
             setUploading(false);
+        }
+    };
+
+    // Handle starting a chat with a patient
+    const handleStartChat = async (patientEmail, patientName) => {
+        try {
+            if (!patientEmail) {
+                alert("Patient email not available. Cannot start chat.");
+                return;
+            }
+
+            // Check if conversation already exists
+            const existingConversation = conversations.find(
+                conv => conv.other_user_email === patientEmail
+            );
+
+            if (existingConversation) {
+                // Select existing conversation and switch to messages tab
+                selectConversation(existingConversation);
+                setActiveTab("messages");
+            } else {
+                // Start new conversation
+                const conversationId = await startConversation(patientEmail);
+                if (conversationId) {
+                    // Find the newly created conversation and select it
+                    await new Promise(resolve => setTimeout(resolve, 500)); // Wait for conversations to refresh
+                    const newConversation = conversations.find(
+                        conv => conv.conversation_id === conversationId
+                    );
+                    if (newConversation) {
+                        selectConversation(newConversation);
+                    }
+                    setActiveTab("messages");
+                } else {
+                    alert("Failed to start conversation with patient.");
+                }
+            }
+        } catch (error) {
+            console.error("Error starting chat:", error);
+            alert("Failed to start chat. Please try again.");
         }
     };
 
@@ -636,7 +677,11 @@ const DoctorDashboard = () => {
                                                     >
                                                         <i className="fas fa-video me-1"></i>Start Call
                                                     </button>
-                                                    <button className="btn btn-outline-secondary btn-sm">
+                                                    <button 
+                                                        className="btn btn-outline-secondary btn-sm"
+                                                        onClick={() => handleStartChat(patient.email, patient.name)}
+                                                        title="Start chat with patient"
+                                                    >
                                                         <i className="fas fa-message me-1"></i>Message
                                                     </button>
                                                 </div>

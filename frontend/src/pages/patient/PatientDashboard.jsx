@@ -40,6 +40,7 @@ const PatientDashboard = () => {
     sendMessage,
     uploadImage,
     selectConversation,
+    startConversation,
     getUnreadCount,
     clearError,
   } = useMessages();
@@ -378,6 +379,67 @@ useEffect(() => {
     }
   };
 
+  // Handle starting a chat with a doctor
+  const handleStartChat = async (doctorId, doctorName) => {
+    try {
+      if (!doctorId) {
+        alert("Doctor information not available. Cannot start chat.");
+        return;
+      }
+
+      // Get doctor email from doctorId
+      const doctorEmail = await getDoctorEmail(doctorId);
+      if (!doctorEmail) {
+        alert("Unable to find doctor contact information. Cannot start chat.");
+        return;
+      }
+
+      // Check if conversation already exists
+      const existingConversation = conversations.find(
+        conv => conv.other_user_email === doctorEmail
+      );
+
+      if (existingConversation) {
+        // Select existing conversation and switch to messages tab
+        selectConversation(existingConversation);
+        setActiveTab("messages");
+      } else {
+        // Start new conversation
+        const conversationId = await startConversation(doctorEmail);
+        if (conversationId) {
+          // Find the newly created conversation and select it
+          await new Promise(resolve => setTimeout(resolve, 500)); // Wait for conversations to refresh
+          const newConversation = conversations.find(
+            conv => conv.conversation_id === conversationId
+          );
+          if (newConversation) {
+            selectConversation(newConversation);
+          }
+          setActiveTab("messages");
+        } else {
+          alert("Failed to start conversation with doctor.");
+        }
+      }
+    } catch (error) {
+      console.error("Error starting chat:", error);
+      alert("Failed to start chat. Please try again.");
+    }
+  };
+
+  // Helper function to get doctor email from doctorId
+  const getDoctorEmail = async (doctorId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`http://localhost:5000/api/doctors/${doctorId}/details`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data.email;
+    } catch (error) {
+      console.error("Error fetching doctor email:", error);
+      return null;
+    }
+  };
+
   const renderOverview = () => (
     <div className="row g-3 g-md-4">
       {/* Quick Stats */}
@@ -649,6 +711,8 @@ useEffect(() => {
                 borderRadius: "8px",
                 padding: "6px 12px",
               }}
+              onClick={() => handleStartChat(appointment.doctorId, appointment.doctorName)}
+              title="Start chat with doctor"
             >
               <i className="fas fa-message"></i>
             </button>

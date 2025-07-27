@@ -7,4 +7,7 @@ backend/mediconnect-env
 frontend/build
 backend/__pycache__
 
+# Assignment3 directory - unrelated to main project
+Assignment3/
+
 # Also include backend/uploads directory in here. I haven't added so that all of us can try.
