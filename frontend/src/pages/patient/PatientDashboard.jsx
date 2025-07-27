@@ -26,6 +26,8 @@ const PatientDashboard = () => {
   const [availabilityDoctorName, setAvailabilityDoctorName] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [appointments, setAppointments] = useState([]);
+  const [appointloading, setappointLoading] = useState(true);
 
 
   const navigate = useNavigate();
@@ -107,6 +109,7 @@ const PatientDashboard = () => {
     }
 
     alert('Appointment booked! Confirmation email sent.');
+    fetchAppointments();
     setActiveTab("Overview");
   } catch (err) {
     console.error('Booking error:', err);
@@ -272,30 +275,30 @@ const handleEventClick = ({ event }) => {
     emergencyContact: patientProfile?.emergencyContact || "Not specified",
   };
 
-  const upcomingAppointments = [
-    {
-      id: 1,
-      doctor: "Dr. Emily Chen",
-      specialty: "Cardiologist",
-      date: "2025-06-28",
-      time: "10:00 AM",
-      type: "Video Consultation",
-      status: "confirmed",
-      avatar:
-        "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=100&h=100&fit=crop&crop=face",
-    },
-    {
-      id: 2,
-      doctor: "Dr. Michael Rodriguez",
-      specialty: "General Practitioner",
-      date: "2025-07-02",
-      time: "2:30 PM",
-      type: "In-Person Visit",
-      status: "pending",
-      avatar:
-        "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face",
-    },
-  ];
+  const fetchAppointments = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await fetch("http://localhost:5000/api/appointments", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Failed to fetch appointments");
+
+    setAppointments(result.appointments || []);
+  } catch (err) {
+    console.error("Error fetching appointments:", err);
+  } finally {
+    setappointLoading(false);
+  }
+};
+
+useEffect(() => {
+  fetchAppointments();
+}, []);
+
 
   // Handle image selection
   const handleImageSelect = (e) => {
@@ -411,7 +414,7 @@ const handleEventClick = ({ event }) => {
                     style={{ fontSize: "1.5rem" }}
                   ></i>
                 </div>
-                <h3 className="mb-1 fw-bold">{upcomingAppointments.length}</h3>
+                <h3 className="mb-1 fw-bold">{appointments.length}</h3>
                 <p className="mb-0 small opacity-75">Upcoming Appointments</p>
               </div>
             </div>
@@ -563,90 +566,99 @@ const handleEventClick = ({ event }) => {
           </div>
           <div className="card-body p-4">
             <div className="row g-3">
-              {upcomingAppointments.map((appointment) => (
-                <div key={appointment.id} className="col-12">
-                  <div
-                    className="d-flex flex-column flex-sm-row align-items-start align-items-sm-center appointment-card p-3 border rounded gap-3"
-                    style={{
-                      borderRadius: "15px",
-                      border: "1px solid #e9ecef",
-                      background: "#fafbfc",
-                      transition: "all 0.3s ease",
-                    }}
-                  >
-                    <img
-                      src={appointment.avatar}
-                      alt={appointment.doctor}
-                      className="rounded-circle border border-white"
-                      style={{
-                        width: "60px",
-                        height: "60px",
-                        objectFit: "cover",
-                        boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
-                      }}
-                    />
-                    <div className="flex-grow-1">
-                      <h6 className="mb-1 fw-bold">{appointment.doctor}</h6>
-                      <p className="mb-1 text-muted small">
-                        {appointment.specialty}
-                      </p>
-                      <small className="text-muted">
-                        <i className="fas fa-calendar me-1 text-primary"></i>
-                        {appointment.date} at {appointment.time}
-                      </small>
-                    </div>
-                    <div className="d-flex flex-column align-items-center gap-2">
-                      <span
-                        className={`badge px-3 py-1 text-white`}
-                        style={{
-                          background:
-                            appointment.status === "confirmed"
-                              ? "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
-                              : "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-                          borderRadius: "20px",
-                        }}
-                      >
-                        {appointment.status}
-                      </span>
-                      <div className="d-flex gap-1">
-                        <button
-                          className="btn btn-sm"
-                          onClick={() =>
-                            handleStartVideoConsultation({
-                              id: appointment.id,
-                              patient_name: patientData.name,
-                              doctor_name: appointment.doctor,
-                              date: appointment.date,
-                              time: appointment.time,
-                              type: appointment.type,
-                            })
-                          }
-                          style={{
-                            background:
-                              "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-                            border: "none",
-                            borderRadius: "8px",
-                            color: "white",
-                            padding: "6px 12px",
-                          }}
-                          title="Join video consultation"
-                        >
-                          <i className="fas fa-video"></i>
-                        </button>
-                        <button
-                          className="btn btn-outline-secondary btn-sm"
-                          style={{
-                            borderRadius: "8px",
-                            padding: "6px 12px",
-                          }}
-                        >
-                          <i className="fas fa-message"></i>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {appointloading ? (
+  <p className="text-muted">Loading appointments...</p>
+) : appointments.length === 0 ? (
+  <div className="text-center text-muted">
+    <i className="fas fa-calendar-times fa-2x mb-2"></i>
+    <p>No appointments available yet.</p>
+  </div>
+) : (
+  appointments.map((appointment) => (
+    <div key={appointment._id} className="col-12">
+      <div
+        className="d-flex flex-column flex-sm-row align-items-start align-items-sm-center appointment-card p-3 border rounded gap-3"
+        style={{
+          borderRadius: "15px",
+          border: "1px solid #e9ecef",
+          background: "#fafbfc",
+          transition: "all 0.3s ease",
+        }}
+      >
+        <img
+          src={appointment.avatar || "/default-doctor.png"}
+          alt={appointment.doctorName}
+          className="rounded-circle border border-white"
+          style={{
+            width: "60px",
+            height: "60px",
+            objectFit: "cover",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+          }}
+        />
+        <div className="flex-grow-1">
+          <h6 className="mb-1 fw-bold">{appointment.doctorName}</h6>
+          <p className="mb-1 text-muted small">
+            {appointment.specialty || "General Physician"}
+          </p>
+          <small className="text-muted">
+            <i className="fas fa-calendar me-1 text-primary"></i>
+            {appointment.date} at {appointment.time}
+          </small>
+        </div>
+        <div className="d-flex flex-column align-items-center gap-2">
+          <span
+            className="badge px-3 py-1 text-white"
+            style={{
+              background:
+                appointment.status === "confirmed"
+                  ? "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
+                  : "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+              borderRadius: "20px",
+            }}
+          >
+            {appointment.status || "confirmed"}
+          </span>
+          <div className="d-flex gap-1">
+            <button
+              className="btn btn-sm"
+              onClick={() =>
+                handleStartVideoConsultation({
+                  id: appointment._id,
+                  patient_name: patientData.name,
+                  doctor_name: appointment.doctorName,
+                  date: appointment.date,
+                  time: appointment.time,
+                  type: appointment.type,
+                })
+              }
+              style={{
+                background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+                border: "none",
+                borderRadius: "8px",
+                color: "white",
+                padding: "6px 12px",
+              }}
+              title="Join video consultation"
+            >
+              <i className="fas fa-video"></i>
+            </button>
+            <button
+              className="btn btn-outline-secondary btn-sm"
+              style={{
+                borderRadius: "8px",
+                padding: "6px 12px",
+              }}
+            >
+              <i className="fas fa-message"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  ))
+)}
+
             </div>
           </div>
         </div>
@@ -1355,7 +1367,7 @@ const handleEventClick = ({ event }) => {
                   className="btn text-white flex-fill flex-sm-grow-0"
                   onClick={() => {
                     // Find next upcoming appointment
-                    const nextAppointment = upcomingAppointments[0];
+                    const nextAppointment = appointments[0];
                     if (nextAppointment) {
                       handleStartVideoConsultation({
                         id: nextAppointment.id,
