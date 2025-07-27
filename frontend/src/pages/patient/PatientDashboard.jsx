@@ -22,30 +22,27 @@ const PatientDashboard = () => {
     const [availabilitySlots, setAvailabilitySlots] = useState([]);
     const [availabilityLoading, setAvailabilityLoading] = useState(false);
     const [availabilityDoctorId, setAvailabilityDoctorId] = useState(null);
+
     const [availabilityDoctorName, setAvailabilityDoctorName] = useState(null);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState(null);
+    const [appointments, setAppointments] = useState([]);
+    const [appointloading, setappointLoading] = useState(true);
 
-    // Replace dummy data with real state
-    const [upcomingAppointments, setUpcomingAppointments] = useState([]);
-    const [pastAppointments, setPastAppointments] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
 
     const navigate = useNavigate();
     const {
         conversations,
         activeConversation,
         messages,
-        loading: messagesLoading,
-        error: messagesError,
+        loading,
+        error,
         sendMessage,
         uploadImage,
         selectConversation,
         getUnreadCount,
         clearError,
     } = useMessages();
-
     const [newMessage, setNewMessage] = useState("");
     const [selectedImage, setSelectedImage] = useState(null);
     const [uploading, setUploading] = useState(false);
@@ -55,9 +52,11 @@ const PatientDashboard = () => {
 
     // Video consultation state
     const [showVideoModal, setShowVideoModal] = useState(false);
-    const [selectedAppointmentForVideo, setSelectedAppointmentForVideo] = useState(null);
+    const [selectedAppointmentForVideo, setSelectedAppointmentForVideo] =
+        useState(null);
 
     const handleShowProfile = (doctor) => {
+        console.log("Selected doctor:", doctor);
         setSelectedDoctor(doctor);
         setShowProfileModal(true);
     };
@@ -110,9 +109,8 @@ const PatientDashboard = () => {
             }
 
             alert('Appointment booked! Confirmation email sent.');
-            setActiveTab("overview");
-            // Refresh appointments data
-            fetchPatientData();
+            fetchAppointments();
+            setActiveTab("Overview");
         } catch (err) {
             console.error('Booking error:', err);
             alert('Failed to book appointment. Please try again.');
@@ -122,10 +120,14 @@ const PatientDashboard = () => {
         }
     };
 
+
     const handleEventClick = ({ event }) => {
         setSelectedEvent(event);
         setShowConfirmModal(true);
     };
+
+
+
 
     const fetchDoctorAvailability = async (doctorUserId, doctorname) => {
         setAvailabilityLoading(true);
@@ -158,17 +160,11 @@ const PatientDashboard = () => {
                 >
                     ← Back to Doctor List
                 </button>
-                <h4>Available Slots - {availabilityDoctorName}</h4>
+                <h4>Available Slots</h4>
                 {availabilityLoading ? (
-                    <div className="text-center py-4">
-                        <div className="spinner-border" role="status"></div>
-                        <p className="text-muted mt-2">Loading slots...</p>
-                    </div>
+                    <p className="text-muted">Loading slots...</p>
                 ) : availabilitySlots.length === 0 ? (
-                    <div className="text-center py-4">
-                        <i className="fas fa-calendar-times fa-3x text-muted mb-3"></i>
-                        <p className="text-muted">No available slots</p>
-                    </div>
+                    <p className="text-muted">No available slots</p>
                 ) : (
                     <div style={{
                         width: "95%",
@@ -204,6 +200,7 @@ const PatientDashboard = () => {
 
     // Video consultation handlers
     const handleStartVideoConsultation = (appointment) => {
+        console.log("Starting video consultation for appointment:", appointment);
         setSelectedAppointmentForVideo(appointment);
         setShowVideoModal(true);
     };
@@ -220,48 +217,10 @@ const PatientDashboard = () => {
             setPatientName(name);
         }
 
-        // Fetch patient profile and data
+        // Fetch patient profile
         fetchPatientProfile();
         fetchAvailableDoctors();
-        fetchPatientData();
     }, []);
-
-    const fetchPatientData = async () => {
-        try {
-            setLoading(true);
-            const token = localStorage.getItem("token");
-
-            const response = await axios.get('http://localhost:5000/api/appointments', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            // Process appointments data
-            const appointments = response.data.appointments || [];
-            const now = new Date();
-
-            const upcoming = appointments.filter(apt => {
-                const appointmentDateTime = new Date(apt.date + ' ' + apt.time);
-                return appointmentDateTime > now;
-            });
-
-            const past = appointments.filter(apt => {
-                const appointmentDateTime = new Date(apt.date + ' ' + apt.time);
-                return appointmentDateTime <= now;
-            });
-
-            setUpcomingAppointments(upcoming);
-            setPastAppointments(past);
-
-        } catch (error) {
-            console.error('Error fetching patient data:', error);
-            setError('Failed to load appointments data');
-            // Set empty arrays on error
-            setUpcomingAppointments([]);
-            setPastAppointments([]);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const fetchPatientProfile = async () => {
         try {
@@ -275,7 +234,6 @@ const PatientDashboard = () => {
             setPatientProfile(response.data);
         } catch (error) {
             console.error("Error fetching patient profile:", error);
-            // Profile might not exist yet, that's okay
         }
     };
 
@@ -287,7 +245,6 @@ const PatientDashboard = () => {
             .then((res) => setAvailableDoctors(res.data))
             .catch((err) => {
                 console.error("Failed to fetch doctors:", err);
-                setAvailableDoctors([]);
             });
     };
 
@@ -310,17 +267,52 @@ const PatientDashboard = () => {
     // Dynamic patient data
     const patientData = {
         name: patientName,
-        email: patientProfile?.email || localStorage.getItem("email") || "Not specified",
+        email:
+            patientProfile?.email || localStorage.getItem("email") || "Not specified",
         phone: patientProfile?.contactNumber || "Not specified",
         dateOfBirth: patientProfile?.dateOfBirth || "Not specified",
         bloodType: patientProfile?.bloodGroup || "Not specified",
         emergencyContact: patientProfile?.emergencyContact || "Not specified",
     };
 
+    const fetchAppointments = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch("http://localhost:5000/api/appointments", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Failed to fetch appointments");
+
+            setAppointments(result.appointments || []);
+        } catch (err) {
+            console.error("Error fetching appointments:", err);
+        } finally {
+            setappointLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchAppointments();
+    }, []);
+
+
     // Handle image selection
     const handleImageSelect = (e) => {
         const file = e.target.files[0];
         if (file) {
+            console.log(
+                "Selected image:",
+                file.name,
+                "Type:",
+                file.type,
+                "Size:",
+                file.size
+            );
+
             // Check image type
             const allowedTypes = [
                 "image/png",
@@ -329,7 +321,9 @@ const PatientDashboard = () => {
                 "image/gif",
             ];
             if (!allowedTypes.includes(file.type)) {
-                alert(`File type "${file.type}" not allowed. Only images (PNG, JPG, GIF) are allowed`);
+                alert(
+                    `File type "${file.type}" not allowed. Only images (PNG, JPG, GIF) are allowed`
+                );
                 return;
             }
 
@@ -339,6 +333,7 @@ const PatientDashboard = () => {
                 return;
             }
 
+            console.log("Image validation passed, setting selected image");
             setSelectedImage(file);
         }
     };
@@ -354,7 +349,9 @@ const PatientDashboard = () => {
 
             // Upload image first if selected
             if (selectedImage) {
+                console.log("Uploading image:", selectedImage.name, selectedImage.type);
                 const uploadResult = await uploadImage(selectedImage);
+                console.log("Upload result:", uploadResult);
                 if (uploadResult) {
                     imageAttachment = uploadResult;
                 }
@@ -383,345 +380,413 @@ const PatientDashboard = () => {
 
     const renderOverview = () => (
         <div className="row g-3 g-md-4">
-            {/* Loading state */}
-            {loading && (
-                <div className="col-12 text-center">
-                    <div className="spinner-border" role="status">
-                        <span className="visually-hidden">Loading...</span>
-                    </div>
-                    <p className="mt-2">Loading dashboard data...</p>
-                </div>
-            )}
-
-            {/* Error state */}
-            {error && (
-                <div className="col-12">
-                    <div className="alert alert-danger" role="alert">
-                        {error}
-                        <button
-                            className="btn btn-sm btn-outline-danger ms-2"
-                            onClick={fetchPatientData}
+            {/* Quick Stats */}
+            <div className="col-12">
+                <div className="row g-3">
+                    <div className="col-6 col-lg-3">
+                        <div
+                            className="card stat-card text-white h-100"
+                            style={{
+                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                border: "none",
+                                borderRadius: "15px",
+                                boxShadow: "0 8px 25px rgba(102, 126, 234, 0.3)",
+                                transform: "translateY(0)",
+                                transition: "all 0.3s ease",
+                            }}
                         >
-                            Retry
+                            <div className="card-body text-center p-3">
+                                <div
+                                    className="mb-3"
+                                    style={{
+                                        background: "rgba(255,255,255,0.2)",
+                                        borderRadius: "50%",
+                                        width: "60px",
+                                        height: "60px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        margin: "0 auto",
+                                    }}
+                                >
+                                    <i
+                                        className="fas fa-calendar-check"
+                                        style={{ fontSize: "1.5rem" }}
+                                    ></i>
+                                </div>
+                                <h3 className="mb-1 fw-bold">{appointments.length}</h3>
+                                <p className="mb-0 small opacity-75">Upcoming Appointments</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="col-6 col-lg-3">
+                        <div
+                            className="card stat-card text-white h-100"
+                            style={{
+                                background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+                                border: "none",
+                                borderRadius: "15px",
+                                boxShadow: "0 8px 25px rgba(79, 172, 254, 0.3)",
+                                transform: "translateY(0)",
+                                transition: "all 0.3s ease",
+                            }}
+                        >
+                            <div className="card-body text-center p-3">
+                                <div
+                                    className="mb-3"
+                                    style={{
+                                        background: "rgba(255,255,255,0.2)",
+                                        borderRadius: "50%",
+                                        width: "60px",
+                                        height: "60px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        margin: "0 auto",
+                                    }}
+                                >
+                                    <i
+                                        className="fas fa-comments"
+                                        style={{ fontSize: "1.5rem" }}
+                                    ></i>
+                                </div>
+                                <h3 className="mb-1 fw-bold">{getUnreadCount()}</h3>
+                                <p className="mb-0 small opacity-75">New Messages</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="col-6 col-lg-3">
+                        <div
+                            className="card stat-card text-white h-100"
+                            style={{
+                                background: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+                                border: "none",
+                                borderRadius: "15px",
+                                boxShadow: "0 8px 25px rgba(250, 112, 154, 0.3)",
+                                transform: "translateY(0)",
+                                transition: "all 0.3s ease",
+                            }}
+                        >
+                            <div className="card-body text-center p-3">
+                                <div
+                                    className="mb-3"
+                                    style={{
+                                        background: "rgba(255,255,255,0.2)",
+                                        borderRadius: "50%",
+                                        width: "60px",
+                                        height: "60px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        margin: "0 auto",
+                                    }}
+                                >
+                                    <i
+                                        className="fas fa-history"
+                                        style={{ fontSize: "1.5rem" }}
+                                    ></i>
+                                </div>
+                                <h3 className="mb-1 fw-bold">12</h3>
+                                <p className="mb-0 small opacity-75">Past Consultations</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="col-6 col-lg-3">
+                        <div
+                            className="card stat-card text-white h-100"
+                            style={{
+                                background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+                                border: "none",
+                                borderRadius: "15px",
+                                boxShadow: "0 8px 25px rgba(17, 153, 142, 0.3)",
+                                transform: "translateY(0)",
+                                transition: "all 0.3s ease",
+                            }}
+                        >
+                            <div className="card-body text-center p-3">
+                                <div
+                                    className="mb-3"
+                                    style={{
+                                        background: "rgba(255,255,255,0.2)",
+                                        borderRadius: "50%",
+                                        width: "60px",
+                                        height: "60px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        margin: "0 auto",
+                                    }}
+                                >
+                                    <i
+                                        className="fas fa-video"
+                                        style={{ fontSize: "1.5rem" }}
+                                    ></i>
+                                </div>
+                                <h3 className="mb-1 fw-bold">5</h3>
+                                <p className="mb-0 small opacity-75">Video Consultations</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Upcoming Appointments and Recent Messages */}
+            <div className="col-12 col-xl-8">
+                <div
+                    className="card h-100"
+                    style={{
+                        border: "none",
+                        borderRadius: "20px",
+                        boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
+                        background: "white",
+                    }}
+                >
+                    <div
+                        className="card-header d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2"
+                        style={{
+                            background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+                            borderRadius: "20px 20px 0 0",
+                            border: "none",
+                            padding: "1.5rem",
+                        }}
+                    >
+                        <h5 className="mb-0 fw-bold text-dark">Upcoming Appointments</h5>
+                        <button
+                            className="btn text-white fw-semibold"
+                            onClick={() => navigate("/doctors")}
+                            style={{
+                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                border: "none",
+                                borderRadius: "12px",
+                                padding: "8px 16px",
+                            }}
+                        >
+                            <i className="fas fa-plus me-1"></i>Book New
+                        </button>
+                    </div>
+                    <div className="card-body p-4">
+                        <div className="row g-3">
+                            {appointloading ? (
+                                <p className="text-muted">Loading appointments...</p>
+                            ) : appointments.length === 0 ? (
+                                <div className="text-center text-muted">
+                                    <i className="fas fa-calendar-times fa-2x mb-2"></i>
+                                    <p>No appointments available yet.</p>
+                                </div>
+                            ) : (
+                                appointments.map((appointment) => (
+                                    <div key={appointment._id} className="col-12">
+                                        <div
+                                            className="d-flex flex-column flex-sm-row align-items-start align-items-sm-center appointment-card p-3 border rounded gap-3"
+                                            style={{
+                                                borderRadius: "15px",
+                                                border: "1px solid #e9ecef",
+                                                background: "#fafbfc",
+                                                transition: "all 0.3s ease",
+                                            }}
+                                        >
+                                            <img
+                                                src={appointment.avatar || "/default-doctor.png"}
+                                                alt={appointment.doctorName}
+                                                className="rounded-circle border border-white"
+                                                style={{
+                                                    width: "60px",
+                                                    height: "60px",
+                                                    objectFit: "cover",
+                                                    boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+                                                }}
+                                            />
+                                            <div className="flex-grow-1">
+                                                <h6 className="mb-1 fw-bold">{appointment.doctorName}</h6>
+                                                <p className="mb-1 text-muted small">
+                                                    {appointment.specialty || "General Physician"}
+                                                </p>
+                                                <small className="text-muted">
+                                                    <i className="fas fa-calendar me-1 text-primary"></i>
+                                                    {appointment.date} at {appointment.time}
+                                                </small>
+                                            </div>
+                                            <div className="d-flex flex-column align-items-center gap-2">
+          <span
+              className="badge px-3 py-1 text-white"
+              style={{
+                  background:
+                      appointment.status === "confirmed"
+                          ? "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)"
+                          : "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+                  borderRadius: "20px",
+              }}
+          >
+            {appointment.status || "confirmed"}
+          </span>
+                                                <div className="d-flex gap-1">
+                                                    <button
+                                                        className="btn btn-sm"
+                                                        onClick={() =>
+                                                            handleStartVideoConsultation({
+                                                                id: appointment._id,
+                                                                patient_name: patientData.name,
+                                                                doctor_name: appointment.doctorName,
+                                                                date: appointment.date,
+                                                                time: appointment.time,
+                                                                type: appointment.type,
+                                                            })
+                                                        }
+                                                        style={{
+                                                            background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+                                                            border: "none",
+                                                            borderRadius: "8px",
+                                                            color: "white",
+                                                            padding: "6px 12px",
+                                                        }}
+                                                        title="Join video consultation"
+                                                    >
+                                                        <i className="fas fa-video"></i>
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-outline-secondary btn-sm"
+                                                        style={{
+                                                            borderRadius: "8px",
+                                                            padding: "6px 12px",
+                                                        }}
+                                                    >
+                                                        <i className="fas fa-message"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="col-12 col-xl-4">
+                <div
+                    className="card h-100"
+                    style={{
+                        border: "none",
+                        borderRadius: "20px",
+                        boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
+                        background: "white",
+                    }}
+                >
+                    <div
+                        className="card-header"
+                        style={{
+                            background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+                            borderRadius: "20px 20px 0 0",
+                            border: "none",
+                            padding: "1.5rem 1.5rem 1rem",
+                        }}
+                    >
+                        <h5 className="mb-0 fw-bold text-dark">Recent Messages</h5>
+                    </div>
+                    <div className="card-body p-3">
+                        {loading ? (
+                            <div className="text-center py-3">
+                                <div
+                                    className="spinner-border spinner-border-sm text-primary"
+                                    role="status"
+                                ></div>
+                                <p className="small text-muted mt-2">Loading messages...</p>
+                            </div>
+                        ) : conversations.length === 0 ? (
+                            <div className="text-center py-3">
+                                <p className="text-muted">No conversations yet</p>
+                            </div>
+                        ) : (
+                            conversations.slice(0, 3).map((conversation) => (
+                                <div
+                                    key={conversation.id}
+                                    className={`d-flex align-items-start message-item p-3 rounded mb-2`}
+                                    style={{
+                                        background:
+                                            conversation.unread_count > 0
+                                                ? "linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)"
+                                                : "transparent",
+                                        borderRadius: "12px",
+                                        border:
+                                            conversation.unread_count > 0
+                                                ? "1px solid rgba(102, 126, 234, 0.1)"
+                                                : "1px solid transparent",
+                                        cursor: "pointer",
+                                    }}
+                                    onClick={() => {
+                                        selectConversation(conversation);
+                                        setActiveTab("messages");
+                                    }}
+                                >
+                                    <div
+                                        className="rounded-circle me-3 flex-shrink-0 d-flex align-items-center justify-content-center"
+                                        style={{
+                                            width: "40px",
+                                            height: "40px",
+                                            background:
+                                                "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                            color: "white",
+                                        }}
+                                    >
+                                        <i className="fas fa-user-md"></i>
+                                    </div>
+                                    <div
+                                        className="flex-grow-1 min-w-0"
+                                        style={{ width: "0", overflow: "hidden" }}
+                                    >
+                                        <h6 className="mb-1 fs-6 fw-semibold">
+                                            {conversation.other_user_name}
+                                        </h6>
+                                        <p
+                                            className="mb-1 small text-muted"
+                                            style={{
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                whiteSpace: "nowrap",
+                                                width: "100%",
+                                            }}
+                                        >
+                                            {conversation.last_message || "Start a conversation"}
+                                        </p>
+                                        <small className="text-muted">
+                                            {messageService.formatTime(
+                                                conversation.last_message_time
+                                            )}
+                                        </small>
+                                    </div>
+                                    {conversation.unread_count > 0 && (
+                                        <span
+                                            className="flex-shrink-0"
+                                            style={{
+                                                background:
+                                                    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                                width: "8px",
+                                                height: "8px",
+                                                borderRadius: "50%",
+                                            }}
+                                        ></span>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                        <button
+                            className="btn btn-sm w-100 mt-3 fw-semibold"
+                            onClick={() => setActiveTab("messages")}
+                            style={{
+                                background:
+                                    "linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)",
+                                border: "1px solid rgba(102, 126, 234, 0.3)",
+                                borderRadius: "10px",
+                                color: "#667eea",
+                            }}
+                        >
+                            View All Messages
                         </button>
                     </div>
                 </div>
-            )}
-
-            {/* Quick Stats - using real data */}
-            {!loading && (
-                <>
-                    <div className="col-12">
-                        <div className="row g-3">
-                            <div className="col-6 col-lg-3">
-                                <div className="card stat-card text-white h-100" style={{
-                                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                    border: "none",
-                                    borderRadius: "15px",
-                                    boxShadow: "0 8px 25px rgba(102, 126, 234, 0.3)"
-                                }}>
-                                    <div className="card-body text-center p-3">
-                                        <div className="mb-3" style={{
-                                            background: "rgba(255,255,255,0.2)",
-                                            borderRadius: "50%",
-                                            width: "60px",
-                                            height: "60px",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            margin: "0 auto"
-                                        }}>
-                                            <i className="fas fa-calendar-check" style={{ fontSize: "1.5rem" }}></i>
-                                        </div>
-                                        <h3 className="mb-1 fw-bold">{upcomingAppointments.length}</h3>
-                                        <p className="mb-0 small opacity-75">Upcoming Appointments</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="col-6 col-lg-3">
-                                <div className="card stat-card text-white h-100" style={{
-                                    background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-                                    border: "none",
-                                    borderRadius: "15px",
-                                    boxShadow: "0 8px 25px rgba(79, 172, 254, 0.3)"
-                                }}>
-                                    <div className="card-body text-center p-3">
-                                        <div className="mb-3" style={{
-                                            background: "rgba(255,255,255,0.2)",
-                                            borderRadius: "50%",
-                                            width: "60px",
-                                            height: "60px",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            margin: "0 auto"
-                                        }}>
-                                            <i className="fas fa-comments" style={{ fontSize: "1.5rem" }}></i>
-                                        </div>
-                                        <h3 className="mb-1 fw-bold">{getUnreadCount()}</h3>
-                                        <p className="mb-0 small opacity-75">New Messages</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="col-6 col-lg-3">
-                                <div className="card stat-card text-white h-100" style={{
-                                    background: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-                                    border: "none",
-                                    borderRadius: "15px",
-                                    boxShadow: "0 8px 25px rgba(250, 112, 154, 0.3)"
-                                }}>
-                                    <div className="card-body text-center p-3">
-                                        <div className="mb-3" style={{
-                                            background: "rgba(255,255,255,0.2)",
-                                            borderRadius: "50%",
-                                            width: "60px",
-                                            height: "60px",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            margin: "0 auto"
-                                        }}>
-                                            <i className="fas fa-history" style={{ fontSize: "1.5rem" }}></i>
-                                        </div>
-                                        <h3 className="mb-1 fw-bold">{pastAppointments.length}</h3>
-                                        <p className="mb-0 small opacity-75">Past Consultations</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="col-6 col-lg-3">
-                                <div className="card stat-card text-white h-100" style={{
-                                    background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-                                    border: "none",
-                                    borderRadius: "15px",
-                                    boxShadow: "0 8px 25px rgba(17, 153, 142, 0.3)"
-                                }}>
-                                    <div className="card-body text-center p-3">
-                                        <div className="mb-3" style={{
-                                            background: "rgba(255,255,255,0.2)",
-                                            borderRadius: "50%",
-                                            width: "60px",
-                                            height: "60px",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            margin: "0 auto"
-                                        }}>
-                                            <i className="fas fa-video" style={{ fontSize: "1.5rem" }}></i>
-                                        </div>
-                                        <h3 className="mb-1 fw-bold">{upcomingAppointments.filter(apt => apt.type?.includes('Video')).length}</h3>
-                                        <p className="mb-0 small opacity-75">Video Consultations</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Upcoming Appointments and Recent Messages */}
-                    <div className="col-12 col-xl-8">
-                        <div className="card h-100" style={{
-                            border: "none",
-                            borderRadius: "20px",
-                            boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
-                            background: "white",
-                        }}>
-                            <div className="card-header d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2" style={{
-                                background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
-                                borderRadius: "20px 20px 0 0",
-                                border: "none",
-                                padding: "1.5rem",
-                            }}>
-                                <h5 className="mb-0 fw-bold text-dark">Upcoming Appointments</h5>
-                                <button
-                                    className="btn text-white fw-semibold"
-                                    onClick={() => setActiveTab("available")}
-                                    style={{
-                                        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                        border: "none",
-                                        borderRadius: "12px",
-                                        padding: "8px 16px",
-                                    }}
-                                >
-                                    <i className="fas fa-plus me-1"></i>Book New
-                                </button>
-                            </div>
-                            <div className="card-body p-4">
-                                {upcomingAppointments.length === 0 ? (
-                                    <div className="text-center py-4">
-                                        <i className="fas fa-calendar-times fa-3x text-muted mb-3"></i>
-                                        <p className="text-muted">No upcoming appointments</p>
-                                        <button
-                                            className="btn btn-primary"
-                                            onClick={() => setActiveTab("available")}
-                                        >
-                                            <i className="fas fa-plus me-2"></i>Book Your First Appointment
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="row g-3">
-                                        {upcomingAppointments.map((appointment) => (
-                                            <div key={appointment._id} className="col-12">
-                                                <div className="d-flex flex-column flex-sm-row align-items-start align-items-sm-center appointment-card p-3 border rounded gap-3" style={{
-                                                    borderRadius: "15px",
-                                                    border: "1px solid #e9ecef",
-                                                    background: "#fafbfc",
-                                                    transition: "all 0.3s ease",
-                                                }}>
-                                                    <div className="flex-grow-1">
-                                                        <h6 className="mb-1 fw-bold">{appointment.doctorName}</h6>
-                                                        <p className="mb-1 text-muted small">
-                                                            {appointment.specialty || 'General Consultation'}
-                                                        </p>
-                                                        <small className="text-muted">
-                                                            <i className="fas fa-calendar me-1 text-primary"></i>
-                                                            {appointment.date} at {appointment.time}
-                                                        </small>
-                                                    </div>
-                                                    <div className="d-flex flex-column align-items-center gap-2">
-                            <span className="badge px-3 py-1 text-white" style={{
-                                background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-                                borderRadius: "20px",
-                            }}>
-                              confirmed
-                            </span>
-                                                        <div className="d-flex gap-1">
-                                                            <button
-                                                                className="btn btn-sm"
-                                                                onClick={() =>
-                                                                    handleStartVideoConsultation({
-                                                                        id: appointment._id,
-                                                                        patient_name: patientData.name,
-                                                                        doctor_name: appointment.doctorName,
-                                                                        date: appointment.date,
-                                                                        time: appointment.time,
-                                                                        type: 'Video Consultation',
-                                                                    })
-                                                                }
-                                                                style={{
-                                                                    background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-                                                                    border: "none",
-                                                                    borderRadius: "8px",
-                                                                    color: "white",
-                                                                    padding: "6px 12px",
-                                                                }}
-                                                                title="Join video consultation"
-                                                            >
-                                                                <i className="fas fa-video"></i>
-                                                            </button>
-                                                            <button
-                                                                className="btn btn-outline-secondary btn-sm"
-                                                                style={{
-                                                                    borderRadius: "8px",
-                                                                    padding: "6px 12px",
-                                                                }}
-                                                            >
-                                                                <i className="fas fa-message"></i>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="col-12 col-xl-4">
-                        <div className="card h-100" style={{
-                            border: "none",
-                            borderRadius: "20px",
-                            boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
-                            background: "white",
-                        }}>
-                            <div className="card-header" style={{
-                                background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
-                                borderRadius: "20px 20px 0 0",
-                                border: "none",
-                                padding: "1.5rem 1.5rem 1rem",
-                            }}>
-                                <h5 className="mb-0 fw-bold text-dark">Recent Messages</h5>
-                            </div>
-                            <div className="card-body p-3">
-                                {messagesLoading ? (
-                                    <div className="text-center py-3">
-                                        <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                        <p className="small text-muted mt-2">Loading messages...</p>
-                                    </div>
-                                ) : conversations.length === 0 ? (
-                                    <div className="text-center py-3">
-                                        <p className="text-muted">No conversations yet</p>
-                                    </div>
-                                ) : (
-                                    conversations.slice(0, 3).map((conversation) => (
-                                        <div
-                                            key={conversation.id}
-                                            className={`d-flex align-items-start message-item p-3 rounded mb-2`}
-                                            style={{
-                                                background: conversation.unread_count > 0
-                                                    ? "linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)"
-                                                    : "transparent",
-                                                borderRadius: "12px",
-                                                border: conversation.unread_count > 0
-                                                    ? "1px solid rgba(102, 126, 234, 0.1)"
-                                                    : "1px solid transparent",
-                                                cursor: "pointer",
-                                            }}
-                                            onClick={() => {
-                                                selectConversation(conversation);
-                                                setActiveTab("messages");
-                                            }}
-                                        >
-                                            <div className="rounded-circle me-3 flex-shrink-0 d-flex align-items-center justify-content-center" style={{
-                                                width: "40px",
-                                                height: "40px",
-                                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                                color: "white",
-                                            }}>
-                                                <i className="fas fa-user-md"></i>
-                                            </div>
-                                            <div className="flex-grow-1 min-w-0" style={{ width: "0", overflow: "hidden" }}>
-                                                <h6 className="mb-1 fs-6 fw-semibold">{conversation.other_user_name}</h6>
-                                                <p className="mb-1 small text-muted" style={{
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis",
-                                                    whiteSpace: "nowrap",
-                                                    width: "100%",
-                                                }}>
-                                                    {conversation.last_message || "Start a conversation"}
-                                                </p>
-                                                <small className="text-muted">
-                                                    {messageService.formatTime(conversation.last_message_time)}
-                                                </small>
-                                            </div>
-                                            {conversation.unread_count > 0 && (
-                                                <span className="flex-shrink-0" style={{
-                                                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                                    width: "8px",
-                                                    height: "8px",
-                                                    borderRadius: "50%",
-                                                }}></span>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                                <button
-                                    className="btn btn-sm w-100 mt-3 fw-semibold"
-                                    onClick={() => setActiveTab("messages")}
-                                    style={{
-                                        background: "linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)",
-                                        border: "1px solid rgba(102, 126, 234, 0.3)",
-                                        borderRadius: "10px",
-                                        color: "#667eea",
-                                    }}
-                                >
-                                    View All Messages
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </>
-            )}
+            </div>
         </div>
     );
 
@@ -738,40 +803,38 @@ const PatientDashboard = () => {
                             style={{ borderRadius: "10px", maxWidth: "150px" }}
                         >
                             <option value="all">All Specialties</option>
-                            <option value="cardiology">Cardiology</option>
-                            <option value="dermatology">Dermatology</option>
-                            <option value="neurology">Neurology</option>
-                            <option value="orthopedics">Orthopedics</option>
-                            <option value="pediatrics">Pediatrics</option>
-                            <option value="psychiatry">Psychiatry</option>
-                            <option value="general medicine">General Medicine</option>
-                            <option value="gynecology">Gynecology</option>
-                            <option value="ophthalmology">Ophthalmology</option>
-                            <option value="ent">ENT</option>
+                            <option>Cardiology</option>
+                            <option>Dermatology</option>
+                            <option>Neurology</option>
+                            <option>Orthopedics</option>
+                            <option>Pediatrics</option>
+                            <option>Psychiatry</option>
+                            <option>General Medicine</option>
+                            <option>Gynecology</option>
+                            <option>Ophthalmology</option>
+                            <option>ENT</option>
                         </select>
                     </div>
                 </div>
             </div>
 
-            {loading ? (
-                <div className="col-12 text-center">
-                    <div className="spinner-border" role="status"></div>
-                    <p className="mt-2">Loading doctors...</p>
-                </div>
-            ) : filteredDoctors.length > 0 ? (
+            {filteredDoctors.length > 0 ? (
                 filteredDoctors.map((doctor) => (
                     <div key={doctor.userId} className="col-12 col-lg-6">
-                        <div className="card h-100" style={{
-                            border: "none",
-                            borderRadius: "20px",
-                            boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
-                            background: "white",
-                            transition: "all 0.3s ease",
-                        }}>
+                        <div
+                            className="card h-100"
+                            style={{
+                                border: "none",
+                                borderRadius: "20px",
+                                boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
+                                background: "white",
+                                transition: "all 0.3s ease",
+                            }}
+                        >
                             <div className="card-body p-4">
                                 <div className="d-flex align-items-start gap-3">
                                     <img
-                                        src={doctor.profilePhoto ? `http://localhost:5000/api/files/${doctor.profilePhoto}` : "/default-avatar.png"}
+                                        src={doctor.profilePhoto || "/default-avatar.png"}
                                         alt={doctor.name}
                                         className="rounded-circle"
                                         style={{
@@ -783,7 +846,7 @@ const PatientDashboard = () => {
                                     />
                                     <div className="flex-grow-1">
                                         <h5 className="mb-1 fw-bold">{doctor.name}</h5>
-                                        <p className="text-muted mb-2">{doctor.specialization || 'General Medicine'}</p>
+                                        <p className="text-muted mb-2">{doctor.specialization}</p>
 
                                         {doctor.rating ? (
                                             <div className="d-flex align-items-center mb-2">
@@ -791,7 +854,7 @@ const PatientDashboard = () => {
                           {"★".repeat(Math.floor(doctor.rating))}
                         </span>
                                                 <span className="small text-muted">
-                          {doctor.rating} • {doctor.experience} years
+                          {doctor.rating} • {doctor.experience}
                         </span>
                                             </div>
                                         ) : (
@@ -823,15 +886,11 @@ const PatientDashboard = () => {
                     </div>
                 ))
             ) : noDoctorsInSpecialization ? (
-                <div className="col-12 text-center py-4">
-                    <i className="fas fa-user-md fa-3x text-muted mb-3"></i>
-                    <p className="text-muted">No doctors found with this specialization.</p>
-                </div>
+                <p className="text-center mt-4">
+                    No doctors found with this specialization.
+                </p>
             ) : (
-                <div className="col-12 text-center py-4">
-                    <i className="fas fa-user-md fa-3x text-muted mb-3"></i>
-                    <p className="text-muted">No matching doctors found.</p>
-                </div>
+                <p className="text-center mt-4">No matching doctors found.</p>
             )}
         </div>
     );
@@ -840,30 +899,43 @@ const PatientDashboard = () => {
         <div className="row g-3 g-md-4">
             <div className="col-12">
                 <h4>Messages</h4>
-                {messagesError && (
-                    <div className="alert alert-danger alert-dismissible fade show" role="alert">
-                        {messagesError}
-                        <button type="button" className="btn-close" onClick={() => clearError()}></button>
+                {error && (
+                    <div
+                        className="alert alert-danger alert-dismissible fade show"
+                        role="alert"
+                    >
+                        {error}
+                        <button
+                            type="button"
+                            className="btn-close"
+                            onClick={() => clearError()}
+                        ></button>
                     </div>
                 )}
             </div>
 
             <div className="col-12 col-lg-4">
-                <div className="card h-100" style={{
-                    border: "none",
-                    borderRadius: "20px",
-                    boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
-                }}>
-                    <div className="card-header" style={{
-                        background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
-                        borderRadius: "20px 20px 0 0",
+                <div
+                    className="card h-100"
+                    style={{
                         border: "none",
-                        padding: "1.5rem",
-                    }}>
+                        borderRadius: "20px",
+                        boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
+                    }}
+                >
+                    <div
+                        className="card-header"
+                        style={{
+                            background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+                            borderRadius: "20px 20px 0 0",
+                            border: "none",
+                            padding: "1.5rem",
+                        }}
+                    >
                         <h5 className="mb-0 fw-bold text-dark">Conversations</h5>
                     </div>
                     <div className="card-body p-0">
-                        {messagesLoading ? (
+                        {loading ? (
                             <div className="text-center py-4">
                                 <div className="spinner-border" role="status"></div>
                                 <p className="text-muted mt-2">Loading conversations...</p>
@@ -872,7 +944,9 @@ const PatientDashboard = () => {
                             <div className="text-center py-4">
                                 <i className="fas fa-comments fa-3x text-muted mb-3"></i>
                                 <p className="text-muted">No conversations yet</p>
-                                <small className="text-muted">Messages with doctors will appear here</small>
+                                <small className="text-muted">
+                                    Messages with doctors will appear here
+                                </small>
                             </div>
                         ) : (
                             conversations.map((conversation) => (
@@ -893,26 +967,40 @@ const PatientDashboard = () => {
                                     }}
                                     onClick={() => selectConversation(conversation)}
                                 >
-                                    <div className="rounded-circle me-3 flex-shrink-0 d-flex align-items-center justify-content-center" style={{
-                                        width: "50px",
-                                        height: "50px",
-                                        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                        color: "white",
-                                    }}>
+                                    <div
+                                        className="rounded-circle me-3 flex-shrink-0 d-flex align-items-center justify-content-center"
+                                        style={{
+                                            width: "50px",
+                                            height: "50px",
+                                            background:
+                                                "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                            color: "white",
+                                        }}
+                                    >
                                         <i className="fas fa-user-md"></i>
                                     </div>
-                                    <div className="flex-grow-1 min-w-0" style={{ width: "0", overflow: "hidden" }}>
-                                        <h6 className="mb-1 fw-semibold">{conversation.other_user_name}</h6>
-                                        <p className="mb-0 small text-muted" style={{
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
-                                            width: "100%",
-                                        }}>
+                                    <div
+                                        className="flex-grow-1 min-w-0"
+                                        style={{ width: "0", overflow: "hidden" }}
+                                    >
+                                        <h6 className="mb-1 fw-semibold">
+                                            {conversation.other_user_name}
+                                        </h6>
+                                        <p
+                                            className="mb-0 small text-muted"
+                                            style={{
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                whiteSpace: "nowrap",
+                                                width: "100%",
+                                            }}
+                                        >
                                             {conversation.last_message || "Start a conversation"}
                                         </p>
                                         <small className="text-muted">
-                                            {messageService.formatTime(conversation.last_message_time)}
+                                            {messageService.formatTime(
+                                                conversation.last_message_time
+                                            )}
                                         </small>
                                     </div>
                                     {conversation.unread_count > 0 && (
@@ -928,34 +1016,52 @@ const PatientDashboard = () => {
             </div>
 
             <div className="col-12 col-lg-8">
-                <div className="card h-100" style={{
-                    border: "none",
-                    borderRadius: "20px",
-                    boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
-                }}>
+                <div
+                    className="card h-100"
+                    style={{
+                        border: "none",
+                        borderRadius: "20px",
+                        boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
+                    }}
+                >
                     {activeConversation ? (
                         <>
-                            <div className="card-header d-flex align-items-center" style={{
-                                background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
-                                borderRadius: "20px 20px 0 0",
-                                border: "none",
-                                padding: "1.5rem",
-                            }}>
-                                <div className="rounded-circle me-3 flex-shrink-0 d-flex align-items-center justify-content-center" style={{
-                                    width: "40px",
-                                    height: "40px",
-                                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                    color: "white",
-                                }}>
+                            <div
+                                className="card-header d-flex align-items-center"
+                                style={{
+                                    background:
+                                        "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+                                    borderRadius: "20px 20px 0 0",
+                                    border: "none",
+                                    padding: "1.5rem",
+                                }}
+                            >
+                                <div
+                                    className="rounded-circle me-3 flex-shrink-0 d-flex align-items-center justify-content-center"
+                                    style={{
+                                        width: "40px",
+                                        height: "40px",
+                                        background:
+                                            "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                        color: "white",
+                                    }}
+                                >
                                     <i className="fas fa-user-md"></i>
                                 </div>
                                 <div>
-                                    <h6 className="mb-0 fw-bold text-dark">{activeConversation.other_user_name}</h6>
-                                    <small className="text-success">{activeConversation.other_user_role}</small>
+                                    <h6 className="mb-0 fw-bold text-dark">
+                                        {activeConversation.other_user_name}
+                                    </h6>
+                                    <small className="text-success">
+                                        {activeConversation.other_user_role}
+                                    </small>
                                 </div>
                             </div>
-                            <div className="card-body" style={{ height: "400px", overflowY: "auto" }}>
-                                {messagesLoading ? (
+                            <div
+                                className="card-body"
+                                style={{ height: "400px", overflowY: "auto" }}
+                            >
+                                {loading ? (
                                     <div className="text-center py-4">
                                         <div className="spinner-border" role="status"></div>
                                         <p className="text-muted mt-2">Loading messages...</p>
@@ -964,32 +1070,55 @@ const PatientDashboard = () => {
                                     <div className="text-center py-4">
                                         <i className="fas fa-comment fa-3x text-muted mb-3"></i>
                                         <p className="text-muted">No messages yet</p>
-                                        <small className="text-muted">Start the conversation by sending a message</small>
+                                        <small className="text-muted">
+                                            Start the conversation by sending a message
+                                        </small>
                                     </div>
                                 ) : (
                                     messages.map((message) => {
-                                        const isCurrentUser = message.sender_email === localStorage.getItem("userEmail") || message.sender_role === "patient";
+                                        const isCurrentUser =
+                                            message.sender_email ===
+                                            localStorage.getItem("userEmail") ||
+                                            message.sender_role === "patient";
                                         return (
-                                            <div key={message.id} className={`d-flex mb-3 ${isCurrentUser ? "justify-content-end" : ""}`}>
+                                            <div
+                                                key={message.id}
+                                                className={`d-flex mb-3 ${
+                                                    isCurrentUser ? "justify-content-end" : ""
+                                                }`}
+                                            >
                                                 {!isCurrentUser && (
-                                                    <div className="rounded-circle me-2 flex-shrink-0 d-flex align-items-center justify-content-center" style={{
-                                                        width: "30px",
-                                                        height: "30px",
-                                                        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                                        color: "white",
-                                                        fontSize: "0.8rem",
-                                                    }}>
+                                                    <div
+                                                        className="rounded-circle me-2 flex-shrink-0 d-flex align-items-center justify-content-center"
+                                                        style={{
+                                                            width: "30px",
+                                                            height: "30px",
+                                                            background:
+                                                                "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                                            color: "white",
+                                                            fontSize: "0.8rem",
+                                                        }}
+                                                    >
                                                         <i className="fas fa-user-md"></i>
                                                     </div>
                                                 )}
-                                                <div className={`p-2 rounded ${isCurrentUser ? "text-white" : "bg-light"}`} style={{
-                                                    background: isCurrentUser ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" : undefined,
-                                                    maxWidth: "70%",
-                                                }}>
+                                                <div
+                                                    className={`p-2 rounded ${
+                                                        isCurrentUser ? "text-white" : "bg-light"
+                                                    }`}
+                                                    style={{
+                                                        background: isCurrentUser
+                                                            ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+                                                            : undefined,
+                                                        maxWidth: "70%",
+                                                    }}
+                                                >
                                                     {/* Text message */}
                                                     {message.message && (
                                                         <p className="mb-1 small">
-                                                            {typeof message.message === "string" ? message.message : "[Invalid Message]"}
+                                                            {typeof message.message === "string"
+                                                                ? message.message
+                                                                : "[Invalid Message]"}
                                                         </p>
                                                     )}
 
@@ -1005,17 +1134,32 @@ const PatientDashboard = () => {
                                                                     borderRadius: "8px",
                                                                     cursor: "pointer",
                                                                 }}
-                                                                onClick={() => window.open(`http://localhost:5000/api/files/${message.image_attachment.file_id}`, "_blank")}
+                                                                onClick={() =>
+                                                                    window.open(
+                                                                        `http://localhost:5000/api/files/${message.image_attachment.file_id}`,
+                                                                        "_blank"
+                                                                    )
+                                                                }
                                                             />
                                                             <br />
-                                                            <small className={isCurrentUser ? "text-white-50" : "text-muted"}>
+                                                            <small
+                                                                className={
+                                                                    isCurrentUser ? "text-white-50" : "text-muted"
+                                                                }
+                                                            >
                                                                 {message.image_attachment.original_name}
                                                             </small>
                                                         </div>
                                                     )}
 
-                                                    <small className={isCurrentUser ? "text-white-50" : "text-muted"}>
-                                                        {messageService.formatMessageTime(message.timestamp)}
+                                                    <small
+                                                        className={
+                                                            isCurrentUser ? "text-white-50" : "text-muted"
+                                                        }
+                                                    >
+                                                        {messageService.formatMessageTime(
+                                                            message.timestamp
+                                                        )}
                                                     </small>
                                                 </div>
                                             </div>
@@ -1023,12 +1167,16 @@ const PatientDashboard = () => {
                                     })
                                 )}
                             </div>
-                            <div className="card-footer" style={{ background: "white", borderRadius: "0 0 20px 20px" }}>
+                            <div
+                                className="card-footer"
+                                style={{ background: "white", borderRadius: "0 0 20px 20px" }}
+                            >
                                 <form onSubmit={handleSendMessage}>
                                     {selectedImage && (
                                         <div className="mb-2 p-2 bg-light rounded">
                                             <small className="text-muted">
-                                                🖼️ {selectedImage.name} ({(selectedImage.size / 1024 / 1024).toFixed(2)} MB)
+                                                🖼️ {selectedImage.name} (
+                                                {(selectedImage.size / 1024 / 1024).toFixed(2)} MB)
                                                 <button
                                                     type="button"
                                                     className="btn btn-sm btn-link text-danger p-0 ms-2"
@@ -1061,7 +1209,9 @@ const PatientDashboard = () => {
                                         <button
                                             type="button"
                                             className="btn btn-outline-secondary"
-                                            onClick={() => document.getElementById("image-input").click()}
+                                            onClick={() =>
+                                                document.getElementById("image-input").click()
+                                            }
                                             title="Attach image"
                                             style={{ borderRadius: "0" }}
                                         >
@@ -1070,15 +1220,23 @@ const PatientDashboard = () => {
                                         <button
                                             type="submit"
                                             className="btn text-white"
-                                            disabled={(!newMessage.trim() && !selectedImage) || messagesLoading || uploading}
+                                            disabled={
+                                                (!newMessage.trim() && !selectedImage) ||
+                                                loading ||
+                                                uploading
+                                            }
                                             style={{
-                                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                                background:
+                                                    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                                                 border: "none",
                                                 borderRadius: "0 10px 10px 0",
                                             }}
                                         >
                                             {uploading ? (
-                                                <span className="spinner-border spinner-border-sm" role="status"></span>
+                                                <span
+                                                    className="spinner-border spinner-border-sm"
+                                                    role="status"
+                                                ></span>
                                             ) : (
                                                 <i className="fas fa-paper-plane"></i>
                                             )}
@@ -1088,11 +1246,16 @@ const PatientDashboard = () => {
                             </div>
                         </>
                     ) : (
-                        <div className="card-body d-flex align-items-center justify-content-center" style={{ height: "500px" }}>
+                        <div
+                            className="card-body d-flex align-items-center justify-content-center"
+                            style={{ height: "500px" }}
+                        >
                             <div className="text-center">
                                 <i className="fas fa-comments fa-4x text-muted mb-3"></i>
                                 <h5 className="text-muted">Select a conversation</h5>
-                                <p className="text-muted">Choose a conversation from the left to start messaging</p>
+                                <p className="text-muted">
+                                    Choose a conversation from the left to start messaging
+                                </p>
                             </div>
                         </div>
                     )}
@@ -1132,36 +1295,56 @@ const PatientDashboard = () => {
     };
 
     return (
-        <div className="min-vh-100" style={{
-            background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
-            minHeight: "100vh",
-        }}>
+        <div
+            className="min-vh-100"
+            style={{
+                background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+                minHeight: "100vh",
+            }}
+        >
             {/* Dashboard Header */}
-            <header className="sticky-top" style={{
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-            }}>
+            <header
+                className="sticky-top"
+                style={{
+                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+                }}
+            >
                 <div className="container-fluid px-3 px-md-4">
                     <div className="row align-items-center py-4">
                         <div className="col-12 col-lg-8 mb-3 mb-lg-0">
                             <div className="d-flex align-items-center">
                                 <div className="me-3">
-                                    <div className="bg-white rounded-circle p-2" style={{ width: "50px", height: "50px" }}>
+                                    <div
+                                        className="bg-white rounded-circle p-2"
+                                        style={{ width: "50px", height: "50px" }}
+                                    >
                                         {patientProfile?.profilePhoto ? (
                                             <img
                                                 alt="Profile"
                                                 className="rounded-circle"
                                                 src={`http://localhost:5000/api/files/${patientProfile.profilePhoto}`}
-                                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                style={{
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    objectFit: "cover",
+                                                }}
                                             />
                                         ) : (
-                                            <i className="fas fa-user text-primary" style={{ fontSize: "1.5rem" }}></i>
+                                            <i
+                                                className="fas fa-user text-primary"
+                                                style={{ fontSize: "1.5rem" }}
+                                            ></i>
                                         )}
                                     </div>
                                 </div>
                                 <div>
-                                    <h1 className="h3 mb-1 fw-bold text-white">Welcome back, {patientData.name}!</h1>
-                                    <p className="text-white-50 mb-0 small">Manage your healthcare appointments and records</p>
+                                    <h1 className="h3 mb-1 fw-bold text-white">
+                                        Welcome back, {patientData.name}!
+                                    </h1>
+                                    <p className="text-white-50 mb-0 small">
+                                        Manage your healthcare appointments and records
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -1169,7 +1352,7 @@ const PatientDashboard = () => {
                             <div className="d-flex flex-column flex-sm-row gap-2 justify-content-lg-end">
                                 <button
                                     className="btn text-white flex-fill flex-sm-grow-0"
-                                    onClick={() => setActiveTab("available")}
+                                    onClick={() => navigate("/doctors")}
                                     style={{
                                         background: "rgba(255,255,255,0.2)",
                                         border: "1px solid rgba(255,255,255,0.3)",
@@ -1184,15 +1367,15 @@ const PatientDashboard = () => {
                                     className="btn text-white flex-fill flex-sm-grow-0"
                                     onClick={() => {
                                         // Find next upcoming appointment
-                                        const nextAppointment = upcomingAppointments[0];
+                                        const nextAppointment = appointments[0];
                                         if (nextAppointment) {
                                             handleStartVideoConsultation({
-                                                id: nextAppointment._id,
+                                                id: nextAppointment.id,
                                                 patient_name: patientData.name,
-                                                doctor_name: nextAppointment.doctorName,
+                                                doctor_name: nextAppointment.doctor,
                                                 date: nextAppointment.date,
                                                 time: nextAppointment.time,
-                                                type: 'Video Consultation',
+                                                type: nextAppointment.type,
                                             });
                                         } else {
                                             alert("No upcoming appointments to join");
@@ -1216,17 +1399,44 @@ const PatientDashboard = () => {
             </header>
 
             {/* Dashboard Navigation */}
-            <nav className="bg-white" style={{
-                borderBottom: "1px solid #e9ecef",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-            }}>
+            <nav
+                className="bg-white"
+                style={{
+                    borderBottom: "1px solid #e9ecef",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                }}
+            >
                 <div className="container-fluid px-3 px-md-4">
-                    <div className="nav nav-pills d-flex overflow-auto py-3" style={{ minHeight: "4rem" }}>
+                    <div
+                        className="nav nav-pills d-flex overflow-auto py-3"
+                        style={{ minHeight: "4rem" }}
+                    >
                         {[
-                            { id: "overview", icon: "fa-tachometer-alt", label: "Overview", color: "#f093fb" },
-                            { id: "available", icon: "fa-user-md", label: "Available Doctors", color: "#667eea" },
-                            { id: "messages", icon: "fa-comments", label: "Messages", badge: getUnreadCount(), color: "#fa709a" },
-                            { id: "profile", icon: "fa-user", label: "Profile", color: "#a8edea" },
+                            {
+                                id: "overview",
+                                icon: "fa-tachometer-alt",
+                                label: "Overview",
+                                color: "#f093fb",
+                            },
+                            {
+                                id: "available",
+                                icon: "fa-user-md",
+                                label: "Available Doctors",
+                                color: "#667eea",
+                            },
+                            {
+                                id: "messages",
+                                icon: "fa-comments",
+                                label: "Messages",
+                                badge: getUnreadCount(),
+                                color: "#fa709a",
+                            },
+                            {
+                                id: "profile",
+                                icon: "fa-user",
+                                label: "Profile",
+                                color: "#a8edea",
+                            },
                         ].map((tab) => (
                             <button
                                 key={tab.id}
@@ -1235,9 +1445,10 @@ const PatientDashboard = () => {
                                 }`}
                                 onClick={() => setActiveTab(tab.id)}
                                 style={{
-                                    background: activeTab === tab.id
-                                        ? `linear-gradient(135deg, ${tab.color}, ${tab.color}dd)`
-                                        : "transparent",
+                                    background:
+                                        activeTab === tab.id
+                                            ? `linear-gradient(135deg, ${tab.color}, ${tab.color}dd)`
+                                            : "transparent",
                                     color: activeTab === tab.id ? "white" : "#6c757d",
                                     border: "none",
                                     borderRadius: "12px",
@@ -1245,10 +1456,28 @@ const PatientDashboard = () => {
                                     fontWeight: activeTab === tab.id ? "600" : "500",
                                     transition: "all 0.3s ease",
                                     transform: activeTab === tab.id ? "translateY(-2px)" : "none",
-                                    boxShadow: activeTab === tab.id ? "0 4px 15px rgba(0,0,0,0.2)" : "none",
+                                    boxShadow:
+                                        activeTab === tab.id
+                                            ? "0 4px 15px rgba(0,0,0,0.2)"
+                                            : "none",
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (activeTab !== tab.id) {
+                                        e.target.style.background = `linear-gradient(135deg, ${tab.color}20, ${tab.color}10)`;
+                                        e.target.style.transform = "translateY(-1px)";
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (activeTab !== tab.id) {
+                                        e.target.style.background = "transparent";
+                                        e.target.style.transform = "none";
+                                    }
                                 }}
                             >
-                                <i className={`fas ${tab.icon} me-2`} style={{ fontSize: "1.1rem" }}></i>
+                                <i
+                                    className={`fas ${tab.icon} me-2`}
+                                    style={{ fontSize: "1.1rem" }}
+                                ></i>
                                 <span className="d-none d-md-inline">{tab.label}</span>
                                 <span className="d-md-none">{tab.label.split(" ")[0]}</span>
                                 {tab.badge && tab.badge > 0 ? (
@@ -1292,13 +1521,25 @@ const PatientDashboard = () => {
                         <Modal.Title>Dr. {selectedDoctor.name}</Modal.Title>
                     </Modal.Header>
                     <Modal.Body>
-                        <p><strong>Specialization:</strong> {selectedDoctor.specialization}</p>
-                        <p><strong>Email:</strong> {selectedDoctor.email || "N/A"}</p>
-                        <p><strong>Experience:</strong> {selectedDoctor.experience || "N/A"} years</p>
-                        <p><strong>Qualification:</strong> {selectedDoctor.qualification || "N/A"}</p>
+                        <p>
+                            <strong>Specialization:</strong> {selectedDoctor.specialization}
+                        </p>
+                        <p>
+                            <strong>Email:</strong> {selectedDoctor.email || "N/A"}
+                        </p>
+                        <p>
+                            <strong>Experience:</strong> {selectedDoctor.experience || "N/A"}{" "}
+                            years
+                        </p>
+                        <p>
+                            <strong>Qualification:</strong>{" "}
+                            {selectedDoctor.qualification || "N/A"}
+                        </p>
                     </Modal.Body>
                     <Modal.Footer>
-                        <Button variant="secondary" onClick={handleCloseProfile}>Close</Button>
+                        <Button variant="secondary" onClick={handleCloseProfile}>
+                            Close
+                        </Button>
                     </Modal.Footer>
                 </Modal>
             )}
@@ -1313,7 +1554,6 @@ const PatientDashboard = () => {
                 />
             )}
 
-            {/* Booking Confirmation Modal */}
             {selectedEvent && (
                 <div className={`modal fade ${showConfirmModal ? 'show d-block' : ''}`} tabIndex="-1" role="dialog" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
                     <div className="modal-dialog" role="document">
@@ -1339,9 +1579,9 @@ const PatientDashboard = () => {
                     </div>
                 </div>
             )}
+
         </div>
     );
 };
 
 export default PatientDashboard;
-
