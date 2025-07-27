@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session, send_from_directory
+from flask import Flask, request, jsonify, session, send_from_directory, Blueprint
 from flask_cors import CORS
 import jwt
 from pymongo import MongoClient
@@ -24,7 +24,7 @@ from routes.doctor_schedule_settings import schedule_settings
 from routes.doctor_schedule import doctor_schedule
 from routes.google_calendar import google_calendar
 from routes.doctor_public_route import doctor_routes
-
+import traceback
 
 load_dotenv()
 app = Flask(__name__)
@@ -39,8 +39,8 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
 
-# Add this to your Flask app config
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # Or your SMTP provider
+# Add this to Flask app config
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'  
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = os.getenv('SENDER_EMAIL')
@@ -1213,19 +1213,450 @@ def get_appointment_video_session(current_user, appointment_id):
     except Exception as e:
         print(f"Error getting appointment video session: {e}")
         return jsonify({"error": "Failed to get video session"}), 500
+    
+# Update the /api/appointments endpoint in app.py
 @app.route('/api/appointments', methods=['GET'])
 @token_required
 def get_appointments(current_user):
-    user_email = current_user['email']
-    appointments = list(appointments_collection.find({"patientEmail": user_email}))
-    
-    # Convert ObjectId to string for frontend
-    for appt in appointments:
-        appt['_id'] = str(appt['_id'])
+    try:
+        user_email = current_user['email']
+        user_role = current_user.get('role')
+        
+        if user_role == 'patient':
+            # Get appointments for patient
+            appointments = list(appointments_collection.find({"patientEmail": user_email}))
+        elif user_role == 'doctor':
+            # Get appointments for doctor
+            doctor_name = f"Dr. {current_user.get('firstName', '')} {current_user.get('lastName', '')}".strip()
+            appointments = list(appointments_collection.find({"doctorName": doctor_name}))
+        else:
+            return jsonify({"error": "Invalid user role"}), 400
+        
+        # Convert ObjectId to string for frontend
+        for appt in appointments:
+            appt['_id'] = str(appt['_id'])
+            # Add appointment status based on date/time
+            appointment_datetime = datetime.strptime(f"{appt['date']} {appt['time']}", "%Y-%m-%d %H:%M")
+            current_datetime = datetime.now()
+            
+            if appointment_datetime > current_datetime:
+                appt['status'] = 'upcoming'
+            else:
+                appt['status'] = 'completed'
 
-    return jsonify({"appointments": appointments}), 200
+        return jsonify({"appointments": appointments}), 200
+        
+    except Exception as e:
+        print(f"Error fetching appointments: {e}")
+        return jsonify({"error": "Failed to fetch appointments"}), 500
 
 
+
+
+# doctor appointments endpoint
+@app.route('/api/doctor/<doctor_id>/appointments/today', methods=['GET'])
+@token_required
+def get_doctor_today_appointments(current_user, doctor_id):
+    """Get today's and upcoming appointments for a doctor"""
+    try:
+        if current_user.get('role') != 'doctor':
+            return jsonify({'error': 'Access denied'}), 403
+            
+        # Get today's date
+        today = datetime.now().date()
+        today_str = today.strftime('%Y-%m-%d')
+        
+        # Get doctor profile to find the correct doctor name
+        doctor_profile = doctor_profiles_collection.find_one({"userId": doctor_id})
+        if not doctor_profile:
+            doctor_profile = doctor_profiles_collection.find_one({"_id": ObjectId(doctor_id)})
+            
+        # Try multiple ways to match appointments
+        doctor_name_variations = []
+        if doctor_profile:
+            first_name = doctor_profile.get('firstName', '')
+            last_name = doctor_profile.get('lastName', '')
+            doctor_name_variations.extend([
+                f"Dr. {first_name} {last_name}".strip(),
+                f"{first_name} {last_name}".strip(),
+                f"Dr {first_name} {last_name}".strip(),
+                f"Dr.{first_name} {last_name}".strip()
+            ])
+        
+        # Also try with current user info
+        user_first = current_user.get('firstName', '')
+        user_last = current_user.get('lastName', '')
+        if user_first or user_last:
+            doctor_name_variations.extend([
+                f"Dr. {user_first} {user_last}".strip(),
+                f"{user_first} {user_last}".strip(),
+                f"Dr {user_first} {user_last}".strip()
+            ])
+        
+        print(f"Searching for appointments with doctor variations: {doctor_name_variations}")
+        print(f"Doctor ID: {doctor_id}")
+        
+        # Query appointments for today using multiple criteria
+        today_query = {
+            '$and': [
+                {'date': today_str},
+                {
+                    '$or': [
+                        {'doctorId': doctor_id},
+                        {'doctorId': str(doctor_id)},
+                        {'doctorName': {'$in': doctor_name_variations}}
+                    ]
+                }
+            ]
+        }
+        
+        today_appointments = list(appointments_collection.find(today_query).sort('time', 1))
+        
+        # Query upcoming appointments (next 7 days)
+        upcoming_query = {
+            '$and': [
+                {'date': {'$gt': today_str}},
+                {
+                    '$or': [
+                        {'doctorId': doctor_id},
+                        {'doctorId': str(doctor_id)},
+                        {'doctorName': {'$in': doctor_name_variations}}
+                    ]
+                }
+            ]
+        }
+        
+        upcoming_appointments = list(appointments_collection.find(upcoming_query).sort([('date', 1), ('time', 1)]).limit(10))
+        
+        # Convert ObjectIds to strings
+        for apt in today_appointments + upcoming_appointments:
+            apt['_id'] = str(apt['_id'])
+            
+        print(f"Found {len(today_appointments)} today appointments and {len(upcoming_appointments)} upcoming appointments")
+        
+        return jsonify({
+            'today': today_appointments,
+            'upcoming': upcoming_appointments,
+            'debug': {
+                'doctor_id': doctor_id,
+                'doctor_names_searched': doctor_name_variations,
+                'today_date': today_str
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"Error fetching doctor appointments: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to fetch appointments'}), 500
+
+# 2. Doctor patients endpoint
+@app.route('/api/doctor/<doctor_id>/patients', methods=['GET'])
+@token_required
+def get_doctor_patients(current_user, doctor_id):
+    """Get all patients for a doctor"""
+    try:
+        if current_user.get('role') != 'doctor':
+            return jsonify({'error': 'Access denied'}), 403
+            
+        # Get doctor profile to find the correct doctor name
+        doctor_profile = doctor_profiles_collection.find_one({"userId": doctor_id})
+        if not doctor_profile:
+            doctor_profile = doctor_profiles_collection.find_one({"_id": ObjectId(doctor_id)})
+            
+        # Build doctor name variations
+        doctor_name_variations = []
+        if doctor_profile:
+            first_name = doctor_profile.get('firstName', '')
+            last_name = doctor_profile.get('lastName', '')
+            doctor_name_variations.extend([
+                f"Dr. {first_name} {last_name}".strip(),
+                f"{first_name} {last_name}".strip(),
+                f"Dr {first_name} {last_name}".strip(),
+                f"Dr.{first_name} {last_name}".strip()
+            ])
+        
+        # Also try with current user info
+        user_first = current_user.get('firstName', '')
+        user_last = current_user.get('lastName', '')
+        if user_first or user_last:
+            doctor_name_variations.extend([
+                f"Dr. {user_first} {user_last}".strip(),
+                f"{user_first} {user_last}".strip(),
+                f"Dr {user_first} {user_last}".strip()
+            ])
+        
+        # Get unique patient emails from appointments using aggregation
+        pipeline = [
+            {
+                '$match': {
+                    '$or': [
+                        {'doctorId': doctor_id},
+                        {'doctorId': str(doctor_id)},
+                        {'doctorName': {'$in': doctor_name_variations}}
+                    ]
+                }
+            },
+            {
+                '$group': {
+                    '_id': '$patientEmail',
+                    'patientName': {'$first': '$patientName'},
+                    'lastVisit': {'$max': '$date'},
+                    'totalVisits': {'$sum': 1}
+                }
+            },
+            {'$sort': {'lastVisit': -1}}
+        ]
+        
+        patients_data = list(appointments_collection.aggregate(pipeline))
+        
+        # Format response and get additional patient info
+        patients = []
+        for patient in patients_data:
+            # Try to get patient profile for additional info
+            patient_profile = patient_profiles_collection.find_one({
+                'email': patient['_id']
+            })
+            
+            # Calculate age if birth date is available
+            age = None
+            if patient_profile and patient_profile.get('dateOfBirth'):
+                try:
+                    birth_date = datetime.strptime(patient_profile['dateOfBirth'], '%Y-%m-%d').date()
+                    today = datetime.now().date()
+                    age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+                except:
+                    age = None
+            
+            patients.append({
+                'email': patient['_id'],
+                'name': patient['patientName'],
+                'lastVisit': patient['lastVisit'],
+                'totalVisits': patient['totalVisits'],
+                'phone': patient_profile.get('contactNumber') if patient_profile else None,
+                'age': age,
+                'bloodGroup': patient_profile.get('bloodGroup') if patient_profile else None
+            })
+            
+        print(f"Found {len(patients)} patients for doctor {doctor_id}")
+        return jsonify(patients), 200
+        
+    except Exception as e:
+        print(f"Error fetching doctor patients: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to fetch patients'}), 500
+
+
+# Enhanced doctor search endpoint
+@app.route('/api/doctors/search', methods=['GET'])
+@token_required
+def search_doctors(current_user):
+    """Search doctors with filters"""
+    try:
+        specialty = request.args.get('specialty')
+        location = request.args.get('location')
+        availability_date = request.args.get('date')
+        
+        # Build query
+        query = {}
+        if specialty and specialty.lower() != 'all':
+            query['specialization'] = {'$regex': specialty, '$options': 'i'}
+            
+        # Find doctors matching criteria
+        doctors_cursor = doctor_profiles_collection.find(query)
+        doctors = []
+        
+        for doc in doctors_cursor:
+            # Check availability if date specified
+            available = True
+            if availability_date:
+                availability_count = doctor_availability_collection.count_documents({
+                    'doctorId': ObjectId(doc['userId']),
+                    'startTime': {
+                        '$gte': datetime.fromisoformat(availability_date),
+                        '$lt': datetime.fromisoformat(availability_date) + timedelta(days=1)
+                    }
+                })
+                available = availability_count > 0
+            
+            if available:
+                doctors.append({
+                    '_id': str(doc['_id']),
+                    'userId': doc['userId'],
+                    'name': f"{doc.get('firstName', '')} {doc.get('lastName', '')}".strip(),
+                    'email': doc.get('email', ''),
+                    'specialization': doc.get('specialization', ''),
+                    'experience': doc.get('experience', ''),
+                    'qualification': doc.get('qualification', ''),
+                    'profilePhoto': doc.get('profilePhoto', ''),
+                    'consultationFee': doc.get('consultationFee', ''),
+                    'rating': doc.get('rating', 0)
+                })
+                
+        return jsonify(doctors), 200
+        
+    except Exception as e:
+        print(f"Error searching doctors: {e}")
+        return jsonify({'error': 'Failed to search doctors'}), 500
+
+# Patient appointments endpoint  
+@app.route('/api/patient/appointments', methods=['GET'])
+@token_required
+def get_patient_appointments(current_user):
+    """Get all appointments for current patient"""
+    try:
+        if current_user.get('role') != 'patient':
+            return jsonify({'error': 'Access denied'}), 403
+            
+        patient_email = current_user.get('email')
+        
+        # Get all appointments for this patient
+        appointments = list(appointments_collection.find({
+            'patientEmail': patient_email
+        }).sort([('date', -1), ('time', -1)]))
+        
+        # Convert ObjectIds to strings and add additional info
+        for apt in appointments:
+            apt['_id'] = str(apt['_id'])
+            
+            # Try to get doctor info
+            doctor_profile = doctor_profiles_collection.find_one({
+                'userId': apt.get('doctorId')
+            })
+            if doctor_profile:
+                apt['doctorSpecialty'] = doctor_profile.get('specialization', '')
+                apt['doctorPhoto'] = doctor_profile.get('profilePhoto', '')
+                
+        return jsonify({'appointments': appointments}), 200
+        
+    except Exception as e:
+        print(f"Error fetching patient appointments: {e}")
+        return jsonify({'error': 'Failed to fetch appointments'}), 500
+
+# Single doctor details endpoint
+@app.route('/api/doctors/<doctor_id>/details', methods=['GET'])
+@token_required
+def get_doctor_details(current_user, doctor_id):
+    """Get detailed information about a specific doctor"""
+    try:
+        # Find doctor by profile ID or user ID
+        doctor = doctor_profiles_collection.find_one({
+            '$or': [
+                {'_id': ObjectId(doctor_id)},
+                {'userId': doctor_id}
+            ]
+        })
+        
+        if not doctor:
+            return jsonify({'error': 'Doctor not found'}), 404
+            
+        # Get additional stats
+        total_appointments = appointments_collection.count_documents({
+            'doctorId': doctor['userId']
+        })
+        
+        # Calculate average rating (placeholder - implement rating system)
+        avg_rating = 4.5  # Placeholder
+        
+        doctor_details = {
+            '_id': str(doctor['_id']),
+            'userId': doctor['userId'],
+            'name': f"{doctor.get('firstName', '')} {doctor.get('lastName', '')}".strip(),
+            'email': doctor.get('email', ''),
+            'specialization': doctor.get('specialization', ''),
+            'experience': doctor.get('experience', ''),
+            'qualification': doctor.get('qualification', ''),
+            'medicalLicense': doctor.get('medicalLicense', ''),
+            'profilePhoto': doctor.get('profilePhoto', ''),
+            'clinicName': doctor.get('clinicName', ''),
+            'consultationFee': doctor.get('consultationFee', ''),
+            'contactNumber': doctor.get('contactNumber', ''),
+            'address': doctor.get('address', ''),
+            'totalAppointments': total_appointments,
+            'rating': avg_rating,
+            'bio': f"Experienced {doctor.get('specialization', 'medical')} professional with {doctor.get('experience', '')} years of practice."
+        }
+        
+        return jsonify(doctor_details), 200
+        
+    except Exception as e:
+        print(f"Error fetching doctor details: {e}")
+        return jsonify({'error': 'Failed to fetch doctor details'}), 500
+
+# Dashboard stats endpoints
+@app.route('/api/doctor/dashboard/stats', methods=['GET'])
+@token_required
+def get_doctor_dashboard_stats(current_user):
+    """Get dashboard statistics for doctor"""
+    try:
+        if current_user.get('role') != 'doctor':
+            return jsonify({'error': 'Access denied'}), 403
+            
+        doctor_id = current_user.get('doctorId') or str(current_user['_id'])
+        
+        # Get doctor profile
+        doctor_profile = doctor_profiles_collection.find_one({"userId": doctor_id})
+        if not doctor_profile:
+            doctor_profile = doctor_profiles_collection.find_one({"_id": ObjectId(doctor_id)})
+            
+        # Build doctor name variations
+        doctor_name_variations = []
+        if doctor_profile:
+            first_name = doctor_profile.get('firstName', '')
+            last_name = doctor_profile.get('lastName', '')
+            doctor_name_variations.extend([
+                f"Dr. {first_name} {last_name}".strip(),
+                f"{first_name} {last_name}".strip(),
+                f"Dr {first_name} {last_name}".strip()
+            ])
+        
+        # Calculate various stats
+        today = datetime.now().date().strftime('%Y-%m-%d')
+        this_month = datetime.now().replace(day=1).strftime('%Y-%m-%d')
+        
+        # Build query for appointments
+        appointment_query = {
+            '$or': [
+                {'doctorId': doctor_id},
+                {'doctorId': str(doctor_id)},
+                {'doctorName': {'$in': doctor_name_variations}}
+            ]
+        }
+        
+        stats = {
+            'todayAppointments': appointments_collection.count_documents({
+                **appointment_query,
+                'date': today
+            }),
+            'totalPatients': len(appointments_collection.distinct('patientEmail', appointment_query)),
+            'thisMonthAppointments': appointments_collection.count_documents({
+                **appointment_query,
+                'date': {'$gte': this_month}
+            }),
+            'totalAppointments': appointments_collection.count_documents(appointment_query),
+            'unreadMessages': 0,  # Implement based on messaging system
+            'avgRating': doctor_profile.get('rating', 4.5) if doctor_profile else 4.5
+        }
+        
+        return jsonify(stats), 200
+        
+    except Exception as e:
+        print(f"Error fetching doctor stats: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to fetch stats'}), 500
+
+# Error handling wrapper
+def handle_api_error(func):
+    """Decorator for consistent error handling"""
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            print(f"API Error in {func.__name__}: {traceback.format_exc()}")
+            return jsonify({'error': 'Internal server error'}), 500
+    return wrapper
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0')

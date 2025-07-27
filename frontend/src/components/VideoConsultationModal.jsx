@@ -11,6 +11,16 @@ const VideoConsultationModal = ({
     const [sessionStatus, setSessionStatus] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [permissionsChecked, setPermissionsChecked] = useState(false);
+    const [mediaPermissions, setMediaPermissions] = useState({
+        camera: false,
+        microphone: false
+    });
+    const [systemCheck, setSystemCheck] = useState({
+        webrtc: false,
+        browser: false,
+        connection: false
+    });
 
     const userRole = localStorage.getItem('role');
     const userName = localStorage.getItem('name');
@@ -18,6 +28,7 @@ const VideoConsultationModal = ({
     useEffect(() => {
         if (isOpen && appointmentId) {
             checkExistingSession();
+            performSystemCheck();
         }
     }, [isOpen, appointmentId]);
 
@@ -43,7 +54,82 @@ const VideoConsultationModal = ({
         }
     };
 
-    const startVideoConsultation = () => {
+    const performSystemCheck = async () => {
+        try {
+            // Check WebRTC support
+            const webrtcSupported = !!(window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection);
+
+            // Check browser compatibility
+            const browserSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+            // Check internet connection
+            const connectionGood = navigator.onLine;
+
+            setSystemCheck({
+                webrtc: webrtcSupported,
+                browser: browserSupported,
+                connection: connectionGood
+            });
+
+            if (webrtcSupported && browserSupported && connectionGood) {
+                await checkMediaPermissions();
+            }
+        } catch (error) {
+            console.error('System check failed:', error);
+        }
+    };
+
+    const checkMediaPermissions = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true
+            });
+
+            setMediaPermissions({
+                camera: true,
+                microphone: true
+            });
+
+            setPermissionsChecked(true);
+
+            // Stop the test stream
+            stream.getTracks().forEach(track => track.stop());
+        } catch (error) {
+            console.error('Media permissions check failed:', error);
+
+            // Try to get individual permissions
+            try {
+                const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                setMediaPermissions(prev => ({ ...prev, camera: true }));
+                videoStream.getTracks().forEach(track => track.stop());
+            } catch (videoError) {
+                setMediaPermissions(prev => ({ ...prev, camera: false }));
+            }
+
+            try {
+                const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                setMediaPermissions(prev => ({ ...prev, microphone: true }));
+                audioStream.getTracks().forEach(track => track.stop());
+            } catch (audioError) {
+                setMediaPermissions(prev => ({ ...prev, microphone: false }));
+            }
+
+            setPermissionsChecked(true);
+        }
+    };
+
+    const startVideoConsultation = async () => {
+        if (!systemCheck.webrtc || !systemCheck.browser) {
+            setError('Your browser does not support video calls. Please use Chrome, Firefox, Safari, or Edge.');
+            return;
+        }
+
+        if (!mediaPermissions.camera && !mediaPermissions.microphone) {
+            setError('Camera and microphone access required for video consultation.');
+            return;
+        }
+
         setShowVideoCall(true);
     };
 
@@ -51,6 +137,24 @@ const VideoConsultationModal = ({
         setShowVideoCall(false);
         onClose();
     };
+
+    const getSystemStatus = () => {
+        const issues = [];
+
+        if (!systemCheck.webrtc) issues.push('WebRTC not supported');
+        if (!systemCheck.browser) issues.push('Browser not compatible');
+        if (!systemCheck.connection) issues.push('No internet connection');
+        if (!mediaPermissions.camera) issues.push('Camera access denied');
+        if (!mediaPermissions.microphone) issues.push('Microphone access denied');
+
+        return {
+            hasIssues: issues.length > 0,
+            issues,
+            isReady: systemCheck.webrtc && systemCheck.browser && systemCheck.connection && (mediaPermissions.camera || mediaPermissions.microphone)
+        };
+    };
+
+    const systemStatus = getSystemStatus();
 
     if (!isOpen) return null;
 
@@ -166,86 +270,104 @@ const VideoConsultationModal = ({
                                     </div>
                                 </div>
 
-                                {/* Pre-consultation Checklist */}
+                                {/* System Check */}
                                 <div className="card mb-4">
                                     <div className="card-header">
                                         <h6 className="mb-0">
-                                            <i className="fas fa-clipboard-check me-2"></i>
-                                            Pre-Consultation Checklist
+                                            <i className="fas fa-desktop me-2"></i>
+                                            System Compatibility Check
                                         </h6>
                                     </div>
                                     <div className="card-body">
                                         <div className="row">
                                             <div className="col-md-6">
-                                                <div className="form-check mb-2">
-                                                    <input className="form-check-input" type="checkbox" defaultChecked />
-                                                    <label className="form-check-label">
-                                                        Camera and microphone permissions granted
-                                                    </label>
+                                                <div className="d-flex align-items-center mb-2">
+                                                    <i className={`fas fa-${systemCheck.browser ? 'check text-success' : 'times text-danger'} me-2`}></i>
+                                                    <span>Browser compatibility</span>
                                                 </div>
-                                                <div className="form-check mb-2">
-                                                    <input className="form-check-input" type="checkbox" defaultChecked />
-                                                    <label className="form-check-label">
-                                                        Stable internet connection verified
-                                                    </label>
+                                                <div className="d-flex align-items-center mb-2">
+                                                    <i className={`fas fa-${systemCheck.webrtc ? 'check text-success' : 'times text-danger'} me-2`}></i>
+                                                    <span>WebRTC support</span>
                                                 </div>
-                                                <div className="form-check mb-2">
-                                                    <input className="form-check-input" type="checkbox" />
-                                                    <label className="form-check-label">
-                                                        Medical documents prepared
-                                                    </label>
+                                                <div className="d-flex align-items-center mb-2">
+                                                    <i className={`fas fa-${systemCheck.connection ? 'check text-success' : 'times text-danger'} me-2`}></i>
+                                                    <span>Internet connection</span>
                                                 </div>
                                             </div>
                                             <div className="col-md-6">
-                                                <div className="form-check mb-2">
-                                                    <input className="form-check-input" type="checkbox" />
-                                                    <label className="form-check-label">
-                                                        Quiet environment secured
-                                                    </label>
+                                                <div className="d-flex align-items-center mb-2">
+                                                    <i className={`fas fa-${mediaPermissions.camera ? 'check text-success' : 'times text-danger'} me-2`}></i>
+                                                    <span>Camera access</span>
                                                 </div>
-                                                <div className="form-check mb-2">
-                                                    <input className="form-check-input" type="checkbox" />
-                                                    <label className="form-check-label">
-                                                        List of symptoms/questions ready
-                                                    </label>
+                                                <div className="d-flex align-items-center mb-2">
+                                                    <i className={`fas fa-${mediaPermissions.microphone ? 'check text-success' : 'times text-danger'} me-2`}></i>
+                                                    <span>Microphone access</span>
                                                 </div>
-                                                <div className="form-check mb-2">
-                                                    <input className="form-check-input" type="checkbox" />
-                                                    <label className="form-check-label">
-                                                        Privacy ensured (others won't interrupt)
-                                                    </label>
+                                                <div className="d-flex align-items-center mb-2">
+                                                    <i className={`fas fa-${permissionsChecked ? 'check text-success' : 'clock text-warning'} me-2`}></i>
+                                                    <span>Permissions {permissionsChecked ? 'checked' : 'checking...'}</span>
                                                 </div>
                                             </div>
+                                        </div>
+
+                                        {systemStatus.hasIssues && (
+                                            <div className="alert alert-warning mt-3">
+                                                <h6 className="alert-heading">
+                                                    <i className="fas fa-exclamation-triangle me-2"></i>
+                                                    Issues Detected
+                                                </h6>
+                                                <ul className="mb-0">
+                                                    {systemStatus.issues.map((issue, index) => (
+                                                        <li key={index}>{issue}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+
+
+                                {/* Browser Support Info */}
+                                <div className="alert alert-info">
+                                    <h6 className="alert-heading">
+                                        <i className="fas fa-info-circle me-2"></i>
+                                        Browser Requirements
+                                    </h6>
+                                    <div className="row">
+                                        <div className="col-md-6">
+                                            <ul className="mb-0">
+                                                <li>Chrome 70+ (Recommended)</li>
+                                                <li>Firefox 65+</li>
+                                                <li>Safari 14+</li>
+                                            </ul>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <ul className="mb-0">
+                                                <li>Edge 80+</li>
+                                                <li>WebRTC support required</li>
+                                                <li>Minimum 1 Mbps internet</li>
+                                            </ul>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* System Requirements */}
-                                <div className="alert alert-info">
-                                    <h6 className="alert-heading">
-                                        <i className="fas fa-info-circle me-2"></i>
-                                        System Requirements
-                                    </h6>
-                                    <ul className="mb-0">
-                                        <li>Modern web browser (Chrome, Firefox, Safari, Edge)</li>
-                                        <li>Stable internet connection (minimum 1 Mbps)</li>
-                                        <li>Camera and microphone access</li>
-                                        <li>WebRTC support (enabled by default in most browsers)</li>
-                                    </ul>
-                                </div>
-
-                                {/* Technical Note for Demo */}
-                                <div className="alert alert-warning">
-                                    <h6 className="alert-heading">
-                                        <i className="fas fa-exclamation-triangle me-2"></i>
-                                        Demo Note
-                                    </h6>
-                                    <p className="mb-0">
-                                        This is a demonstration of the video consultation feature. In a production environment,
-                                        this would connect you with the actual healthcare provider. For the demo, you can
-                                        simulate the connection to see the video interface.
-                                    </p>
-                                </div>
+                                {/* Troubleshooting */}
+                                {!systemStatus.isReady && (
+                                    <div className="alert alert-warning">
+                                        <h6 className="alert-heading">
+                                            <i className="fas fa-tools me-2"></i>
+                                            Troubleshooting
+                                        </h6>
+                                        <ul className="mb-0">
+                                            <li>Ensure your browser has camera/microphone permissions</li>
+                                            <li>Close other applications using camera/microphone</li>
+                                            <li>Try refreshing the page</li>
+                                            <li>Check your internet connection</li>
+                                            <li>Use an incognito/private browsing window</li>
+                                        </ul>
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>
@@ -264,25 +386,31 @@ const VideoConsultationModal = ({
                             <button
                                 type="button"
                                 className="btn btn-outline-primary"
-                                onClick={() => window.open('https://support.zoom.us/hc/en-us/articles/201362153-System-requirements-for-Windows-macOS-and-Linux', '_blank')}
+                                onClick={checkMediaPermissions}
+                                disabled={loading}
                             >
-                                <i className="fas fa-question-circle me-2"></i>
-                                Help
+                                <i className="fas fa-redo me-2"></i>
+                                Recheck System
                             </button>
                             <button
                                 type="button"
                                 className="btn text-white"
                                 onClick={startVideoConsultation}
-                                disabled={loading}
+                                disabled={loading || !systemStatus.isReady}
                                 style={{
-                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    background: systemStatus.isReady
+                                        ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                                        : '#6c757d',
                                     border: 'none',
                                     borderRadius: '12px',
                                     padding: '12px 24px'
                                 }}
                             >
                                 <i className="fas fa-video me-2"></i>
-                                {sessionStatus?.exists ? 'Join Consultation' : 'Start Consultation'}
+                                {systemStatus.isReady
+                                    ? (sessionStatus?.exists ? 'Join Consultation' : 'Start Consultation')
+                                    : 'System Check Required'
+                                }
                             </button>
                         </div>
                     </div>
