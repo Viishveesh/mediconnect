@@ -98,36 +98,72 @@ const DoctorDashboard = () => {
     };
 
     const fetchDoctorData = async () => {
-        try {
-            setLoading(true);
-            const token = localStorage.getItem('token');
-            const doctorId = localStorage.getItem('doctorId');
+    try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        const doctorId = localStorage.getItem('doctorId');
 
-            // Fetch real data from APIs
-            const [appointmentsRes, patientsRes, profileRes] = await Promise.all([
-                axios.get(`http://localhost:5000/api/doctor/${doctorId}/appointments/today`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                }),
-                axios.get(`http://localhost:5000/api/doctor/${doctorId}/patients`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                }),
-                axios.get('http://localhost:5000/api/doctor/profile', {
-                    headers: { Authorization: `Bearer ${token}` }
-                })
-            ]);
-
-            setTodayAppointments(appointmentsRes.data.today || []);
-            setUpcomingAppointments(appointmentsRes.data.upcoming || []);
-            setPatientsList(patientsRes.data || []);
-            setDoctorProfile(profileRes.data);
-
-        } catch (error) {
-            console.error('Error fetching doctor data:', error);
-            setError('Failed to load dashboard data');
-        } finally {
-            setLoading(false);
+        if (!token || !doctorId) {
+            throw new Error('Missing authentication token or doctor ID. Please log in again.');
         }
-    };
+
+        const fetchWithErrorHandling = async (url, config) => {
+            try {
+                const response = await axios.get(url, config);
+                return { success: true, data: response.data };
+            } catch (err) {
+                console.error(`Error fetching ${url}:`, err.response?.data || err.message);
+                return { success: false, error: err.response?.data?.message || err.message, status: err.response?.status };
+            }
+        };
+
+        const [appointmentsRes, patientsRes, profileRes] = await Promise.all([
+            fetchWithErrorHandling(`http://localhost:5000/api/doctor/${doctorId}/appointments/today`, {
+                headers: { Authorization: `Bearer ${token}` }
+            }),
+            fetchWithErrorHandling(`http://localhost:5000/api/doctor/${doctorId}/patients`, {
+                headers: { Authorization: `Bearer ${token}` }
+            }),
+            fetchWithErrorHandling('http://localhost:5000/api/doctor/profile', {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+        ]);
+
+        let errorMessages = [];
+        if (!appointmentsRes.success) {
+            errorMessages.push(`Appointments: ${appointmentsRes.error}`);
+        }
+        if (!patientsRes.success) {
+            errorMessages.push(`Patients: ${patientsRes.error}`);
+        }
+        if (!profileRes.success && profileRes.status !== 404) {
+            errorMessages.push(`Profile: ${profileRes.error}`);
+        }
+
+        if (errorMessages.length > 0) {
+            setError(`Failed to load some data: ${errorMessages.join(', ')}`);
+        } else {
+            setError(null); // Clear any previous errors
+        }
+
+        setTodayAppointments(appointmentsRes.success ? appointmentsRes.data.today || [] : []);
+        setUpcomingAppointments(appointmentsRes.success ? appointmentsRes.data.upcoming || [] : []);
+        setPatientsList(patientsRes.success ? patientsRes.data || [] : []);
+        setDoctorProfile(profileRes.success ? profileRes.data || {} : {
+            specialization: 'Not specified',
+            email: localStorage.getItem('email') || 'Not specified',
+            contactNumber: 'Not specified',
+            medicalLicense: 'Not specified',
+            experience: 0,
+            rating: 0
+        });
+    } catch (error) {
+        console.error('Unexpected error fetching doctor data:', error);
+        setError(error.message || 'Unexpected error occurred');
+    } finally {
+        setLoading(false);
+    }
+};
 
     // Video consultation handlers
     const handleStartVideoConsultation = (appointment) => {
@@ -212,147 +248,146 @@ const DoctorDashboard = () => {
     };
 
     const renderOverview = () => (
-        <div className="row g-3 g-md-4">
-            {/* Loading state */}
-            {loading && (
-                <div className="col-12 text-center">
-                    <div className="spinner-border" role="status">
-                        <span className="visually-hidden">Loading...</span>
-                    </div>
-                    <p className="mt-2">Loading dashboard data...</p>
+    <div className="row g-3 g-md-4">
+        {/* Loading state */}
+        {loading && (
+            <div className="col-12 text-center">
+                <div className="spinner-border" role="status">
+                    <span className="visually-hidden">Loading...</span>
                 </div>
-            )}
+                <p className="mt-2">Loading dashboard data...</p>
+            </div>
+        )}
 
-            {/* Error state */}
-            {error && (
+        {/* Error state */}
+        {error && (
+            <div className="col-12">
+                <div className="alert alert-danger" role="alert">
+                    {error}
+                    <button
+                        className="btn btn-sm btn-outline-danger ms-2"
+                        onClick={fetchDoctorData}
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {/* Quick Stats - using real data */}
+        {!loading && !error && (
+            <>
                 <div className="col-12">
-                    <div className="alert alert-danger" role="alert">
-                        {error}
-                        <button
-                            className="btn btn-sm btn-outline-danger ms-2"
-                            onClick={fetchDoctorData}
-                        >
-                            Retry
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Quick Stats - using real data */}
-            {!loading && !error && (
-                <>
-                    <div className="col-12">
-                        <div className="row g-3">
-                            <div className="col-6 col-lg-3">
-                                <div className="card stat-card text-white h-100" style={{
-                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                    border: 'none',
-                                    borderRadius: '15px',
-                                    boxShadow: '0 8px 25px rgba(102, 126, 234, 0.3)'
-                                }}>
-                                    <div className="card-body text-center p-3">
-                                        <div className="mb-3" style={{
-                                            background: 'rgba(255,255,255,0.2)',
-                                            borderRadius: '50%',
-                                            width: '60px',
-                                            height: '60px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            margin: '0 auto'
-                                        }}>
-                                            <i className="fas fa-calendar-day" style={{ fontSize: '1.5rem' }}></i>
-                                        </div>
-                                        <h3 className="mb-1 fw-bold">{todayAppointments.length}</h3>
-                                        <p className="mb-0 small opacity-75">Today's Appointments</p>
+                    <div className="row g-3">
+                        <div className="col-12 col-lg-6 col-sm-12 col-md-6">
+                            <div className="card stat-card text-white h-100" style={{
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                border: 'none',
+                                borderRadius: '15px',
+                                boxShadow: '0 8px 25px rgba(102, 126, 234, 0.3)'
+                            }}>
+                                <div className="card-body text-center p-3">
+                                    <div className="mb-3" style={{
+                                        background: 'rgba(255,255,255,0.2)',
+                                        borderRadius: '50%',
+                                        width: '60px',
+                                        height: '60px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        margin: '0 auto'
+                                    }}>
+                                        <i className="fas fa-calendar-day" style={{ fontSize: '1.5rem' }}></i>
                                     </div>
+                                    <h3 className="mb-1 fw-bold">{todayAppointments.length}</h3>
+                                    <p className="mb-0 small opacity-75">Today's Appointments</p>
                                 </div>
                             </div>
-                            <div className="col-6 col-lg-3">
-                                <div className="card stat-card text-white h-100" style={{
-                                    background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-                                    border: 'none',
-                                    borderRadius: '15px',
-                                    boxShadow: '0 8px 25px rgba(17, 153, 142, 0.3)'
-                                }}>
-                                    <div className="card-body text-center p-3">
-                                        <div className="mb-3" style={{
-                                            background: 'rgba(255,255,255,0.2)',
-                                            borderRadius: '50%',
-                                            width: '60px',
-                                            height: '60px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            margin: '0 auto'
-                                        }}>
-                                            <i className="fas fa-users" style={{ fontSize: '1.5rem' }}></i>
-                                        </div>
-                                        <h3 className="mb-1 fw-bold">{doctorData.totalPatients}</h3>
-                                        <p className="mb-0 small opacity-75">Total Patients</p>
+                        </div>
+                        <div className="col-12 col-lg-6 col-sm-12 col-md-6">
+                            <div className="card stat-card text-white h-100" style={{
+                                background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                                border: 'none',
+                                borderRadius: '15px',
+                                boxShadow: '0 8px 25px rgba(17, 153, 142, 0.3)'
+                            }}>
+                                <div className="card-body text-center p-3">
+                                    <div className="mb-3" style={{
+                                        background: 'rgba(255,255,255,0.2)',
+                                        borderRadius: '50%',
+                                        width: '60px',
+                                        height: '60px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        margin: '0 auto'
+                                    }}>
+                                        <i className="fas fa-users" style={{ fontSize: '1.5rem' }}></i>
                                     </div>
+                                    <h3 className="mb-1 fw-bold">{doctorData.totalPatients}</h3>
+                                    <p className="mb-0 small opacity-75">Total Patients</p>
                                 </div>
                             </div>
-                            {/* Add more stat cards with real data */}
                         </div>
                     </div>
+                </div>
 
-                    {/* Today's Schedule using real data */}
-                    <div className="col-12 col-xl-8">
-                        <div className="card h-100" style={{
-                            border: 'none',
-                            borderRadius: '20px',
-                            boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-                        }}>
-                            <div className="card-header">
-                                <h5 className="mb-0 fw-bold text-dark">Today's Schedule</h5>
-                            </div>
-                            <div className="card-body p-4">
-                                {todayAppointments.length === 0 ? (
-                                    <div className="text-center py-4">
-                                        <i className="fas fa-calendar-times fa-3x text-muted mb-3"></i>
-                                        <p className="text-muted">No appointments scheduled for today</p>
-                                    </div>
-                                ) : (
-                                    <div className="row g-3">
-                                        {todayAppointments.map(appointment => (
-                                            <div key={appointment._id || appointment.id} className="col-12">
-                                                <div className="d-flex align-items-center appointment-card p-3 border rounded">
-                                                    <div className="text-center me-3">
-                                                        <div className="bg-white rounded-3 p-2 shadow-sm">
-                                                            <strong className="d-block text-primary">
-                                                                {new Date(appointment.datetime || appointment.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                                            </strong>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex-grow-1">
-                                                        <h6 className="mb-1 fw-bold">{appointment.patientName || appointment.patient}</h6>
-                                                        <p className="mb-1 text-muted small">{appointment.reason || 'Consultation'}</p>
-                                                        <small className="text-muted">
-                                                            <i className="fas fa-video me-1 text-primary"></i>
-                                                            {appointment.type || 'Video Consultation'} • {appointment.duration || '30'} mins
-                                                        </small>
-                                                    </div>
-                                                    <div className="d-flex gap-2">
-                                                        <button className="btn btn-sm btn-success">
-                                                            <i className="fas fa-video"></i>
-                                                        </button>
-                                                        <button className="btn btn-outline-secondary btn-sm">
-                                                            <i className="fas fa-user-md"></i>
-                                                        </button>
+                {/* Today's Schedule using real data */}
+                <div className="col-12 col-sm-12 col-lg-12 col-md-12">
+                    <div className="card h-100" style={{
+                        border: 'none',
+                        borderRadius: '20px',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+                    }}>
+                        <div className="card-header">
+                            <h5 className="mb-0 fw-bold text-dark">Today's Schedule</h5>
+                        </div>
+                        <div className="card-body p-4">
+                            {todayAppointments.length === 0 ? (
+                                <div className="text-center py-4">
+                                    <i className="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                                    <p className="text-muted">No appointments scheduled for today</p>
+                                </div>
+                            ) : (
+                                <div className="row g-3">
+                                    {todayAppointments.map(appointment => (
+                                        <div key={appointment._id || appointment.id} className="col-12">
+                                            <div className="d-flex align-items-center appointment-card p-3 border rounded">
+                                                <div className="text-center me-3">
+                                                    <div className="bg-white rounded-3 p-2 shadow-sm">
+                                                        <strong className="d-block text-primary">
+                                                            {new Date(appointment.datetime || appointment.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                        </strong>
                                                     </div>
                                                 </div>
+                                                <div className="flex-grow-1">
+                                                    <h6 className="mb-1 fw-bold">{appointment.patientName || appointment.patient}</h6>
+                                                    <p className="mb-1 text-muted small">{appointment.reason || 'Consultation'}</p>
+                                                    <small className="text-muted">
+                                                        <i className="fas fa-video me-1 text-primary"></i>
+                                                        {appointment.type || 'Video Consultation'} • {appointment.duration || '30'} mins
+                                                    </small>
+                                                </div>
+                                                <div className="d-flex gap-2">
+                                                    <button className="btn btn-sm btn-success">
+                                                        <i className="fas fa-video"></i>
+                                                    </button>
+                                                    <button className="btn btn-outline-secondary btn-sm">
+                                                        <i className="fas fa-user-md"></i>
+                                                    </button>
+                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
-                </>
-            )}
-        </div>
-    );
+                </div>
+            </>
+        )}
+    </div>
+);
 
     const renderAppointments = () => (
         <div className="row g-3 g-md-4">
