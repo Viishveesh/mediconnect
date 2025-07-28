@@ -35,7 +35,7 @@ const Signup = ({ toggleForm }) => {
   }
 
   try {
-    await axios.post("https://mediconnect-backend-xe6f.onrender.comapi/signup", {
+    await axios.post("https://mediconnect-backend-xe6f.onrender.com/api/signup", {
       firstName: formData.firstName,
       lastName: formData.lastName,
       email: formData.email,
