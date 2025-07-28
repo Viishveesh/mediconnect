@@ -615,7 +615,7 @@ useEffect(() => {
             <h5 className="mb-0 fw-bold text-dark">Upcoming Appointments</h5>
             <button
               className="btn text-white fw-semibold"
-              onClick={() => navigate("/doctors")}
+              onClick={() => setActiveTab("available")}
               style={{
                 background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                 border: "none",
@@ -660,9 +660,6 @@ useEffect(() => {
         />
         <div className="flex-grow-1">
           <h6 className="mb-1 fw-bold">{appointment.doctorName}</h6>
-          <p className="mb-1 text-muted small">
-            {appointment.specialty || "General Physician"}
-          </p>
           <small className="text-muted">
             <i className="fas fa-calendar me-1 text-primary"></i>
             {appointment.date} at {appointment.time}
@@ -1430,7 +1427,6 @@ useEffect(() => {
                 <button
                   className="btn text-white flex-fill flex-sm-grow-0"
                   onClick={() => {
-                    // Find next upcoming appointment
                     const nextAppointment = appointments[0];
                     if (nextAppointment) {
                       handleStartVideoConsultation({
