@@ -1,6 +1,6 @@
 import encryptionManager from '../utils/encryption';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://mediconnect-backend-xe6f.onrender.com/api';
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');

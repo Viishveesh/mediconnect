@@ -36,7 +36,7 @@ const VideoConsultationModal = ({
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:5000/api/appointments/${appointmentId}/video-session`, {
+            const response = await fetch(`https://mediconnect-backend-xe6f.onrender.com/api/appointments/${appointmentId}/video-session`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

@@ -29,7 +29,7 @@ const DoctorSchedule = (props) => {
   const fetchSchedule = async () => {
     try {
       const res = await axios.get(
-        `http://localhost:5000/doctor/schedule?doctorId=${doctorId}`
+        `https://mediconnect-backend-xe6f.onrender.com/doctor/schedule?doctorId=${doctorId}`
       );
       const mappedEvents = res.data.map((slot) => ({
         id: slot._id,
@@ -98,8 +98,8 @@ const DoctorSchedule = (props) => {
     try {
       const endpoint =
         slotData.type === "available"
-          ? "http://localhost:5000/doctor/availability"
-          : "http://localhost:5000/doctor/busy";
+          ? "https://mediconnect-backend-xe6f.onrender.com/doctor/availability"
+          : "https://mediconnect-backend-xe6f.onrender.com/doctor/busy";
 
       await axios.post(endpoint, {
         doctorId,
@@ -127,8 +127,8 @@ const DoctorSchedule = (props) => {
     ) {
       try {
         const endpoint = isBusy
-          ? `http://localhost:5000/doctor/busy/${id}`
-          : `http://localhost:5000/doctor/availability/${id}`;
+          ? `https://mediconnect-backend-xe6f.onrender.com/doctor/busy/${id}`
+          : `https://mediconnect-backend-xe6f.onrender.com/doctor/availability/${id}`;
 
         await axios.delete(endpoint);
         fetchSchedule(); // re-fetch the schedule without reloading the page
@@ -226,7 +226,7 @@ const DoctorSchedule = (props) => {
             }
 
             // Redirect to Google login
-            window.location.href = `http://localhost:5000/google/login?token=${token}`;
+            window.location.href = `https://mediconnect-backend-xe6f.onrender.com/google/login?token=${token}`;
           }}
         >
           Connect Google Calendar
@@ -237,7 +237,7 @@ const DoctorSchedule = (props) => {
           onClick={async () => {
             try {
               const res = await fetch(
-                "http://localhost:5000/google/sync-busy",
+                "https://mediconnect-backend-xe6f.onrender.com/google/sync-busy",
                 {
                   headers: {
                     Authorization: `Bearer ${jwtToken}`, // Make sure it's fresh

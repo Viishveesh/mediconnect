@@ -219,7 +219,7 @@ def request_password_reset():
         return jsonify({"message": "No account with that email."}), 404
 
     token = serializer.dumps(email, salt="password-reset-salt")
-    reset_link = f"http://localhost:3000/reset-password?token={token}"
+    reset_link = f"https://dal-mediconnect.netlify.app/reset-password?token={token}"
 
     try:
         msg = Message("Password Reset Request", recipients=[email])
@@ -606,7 +606,7 @@ def get_doctors(current_user):
             "name": f"{doc.get('firstName', '')} {doc.get('lastName', '')}".strip(),
             "specialization": doc.get("specialization", ""),
             "experience": doc.get("experience", ""),
-            "profilePhoto": f"http://localhost:5000/api/files/{doc['profilePhoto']}" if doc.get("profilePhoto") else None,
+            "profilePhoto": f"https://mediconnect-backend-xe6f.onrender.com/api/files/{doc['profilePhoto']}" if doc.get("profilePhoto") else None,
             "email": doc.get("email",""),
             "qualification": doc.get("qualification","")
         })
@@ -1507,7 +1507,7 @@ def search_doctors(current_user):
                     'specialization': doc.get('specialization', ''),
                     'experience': doc.get('experience', ''),
                     'qualification': doc.get('qualification', ''),
-                    'profilePhoto': f"http://localhost:5000/uploads/{doc['profilePhoto']}" if doc.get('profilePhoto') else '',
+                    'profilePhoto': f"https://mediconnect-backend-xe6f.onrender.com/uploads/{doc['profilePhoto']}" if doc.get('profilePhoto') else '',
                     'consultationFee': doc.get('consultationFee', ''),
                     'rating': doc.get('rating', 0)
                 })
