@@ -146,6 +146,9 @@ doctor_profiles_collection = db.doctor_profiles
 patient_profiles_collection = db.patient_profiles
 video_sessions_collection = db.video_sessions
 doctor_availability_collection = db.doctor_availability
+medical_history_collection = db.medical_history
+prescriptions_collection = db.prescriptions
+visit_notes_collection = db.visit_notes
 
 # Register custom blueprints
 app.register_blueprint(doctor_schedule)
@@ -153,6 +156,7 @@ app.register_blueprint(google_calendar)
 app.register_blueprint(schedule_settings)
 app.register_blueprint(doctor_routes)
 app.register_blueprint(notifications)
+
 
 # Signup route
 @app.route("/api/signup", methods=["POST"])
@@ -461,6 +465,147 @@ def create_doctor_profile(current_user):
 
     doctor_profiles_collection.insert_one(profile)
     return jsonify({"message": "Doctor profile created successfully"}), 201
+
+
+# Route to get patient basic info by email
+@app.route("/api/doctor/<doctor_id>/patient/<string:patient_email>", methods=["GET"])
+@token_required
+def get_patient_by_email(current_user, doctor_id, patient_email):
+    """Get patient profile by email"""
+    try:
+        print(current_user)
+        if current_user.get('role') != 'doctor':
+            return jsonify({'error': 'Access denied'}), 403
+
+        if str(current_user['_id']) != doctor_id:
+            return jsonify({'error': 'Unauthorized doctor ID'}), 403
+
+        patient_profile = users_collection.find_one({"email": patient_email})
+        print(patient_email)
+        if not patient_profile:
+            return jsonify({'error': 'Patient not found'}), 404
+
+        return jsonify({
+            'name': f"{patient_profile.get('firstName', '')} {patient_profile.get('lastName', '')}".strip(),
+            'email': patient_profile.get('email'),
+            'phone': patient_profile.get('contactNumber', ''),
+            'dateOfBirth': patient_profile.get('dateOfBirth', ''),
+            'gender': patient_profile.get('gender', ''),
+            'bloodType': patient_profile.get('bloodGroup', '') or patient_profile.get('customBloodGroup', '')
+        }), 200
+
+    except Exception as e:
+        print(f"Error fetching patient by email: {e}")
+        return jsonify({'error': 'Failed to fetch patient data'}), 500
+
+# Route to get patient medical history
+@app.route("/api/patient/<string:patient_email>/medical-history", methods=["GET"])
+@token_required
+def get_medical_history(current_user, patient_email):
+    """Get medical history for a patient by email"""
+    try:
+        print(current_user)
+        if current_user.get('role') != 'doctor':
+            return jsonify({'error': 'Access denied'}), 403
+
+        history = list(medical_history_collection.find({"patientEmail": patient_email}))
+        for item in history:
+            item['_id'] = str(item['_id'])
+        return jsonify(history), 200
+
+    except Exception as e:
+        print(f"Error fetching medical history: {e}")
+        return jsonify({'error': 'Failed to fetch medical history'}), 500
+
+# Route to get patient prescriptions
+@app.route("/api/patient/<string:patient_email>/prescriptions", methods=["GET", "POST"])
+@token_required
+def handle_prescriptions(current_user, patient_email):
+    """Get or create prescriptions for a patient by email"""
+    try:
+        print(current_user)
+        if current_user.get('role') != 'doctor':
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Validate patientEmail
+        if not patient_email or patient_email.lower() == 'undefined':
+            return jsonify({'error': 'Invalid or missing patient email'}), 400
+
+        # Verify patient exists
+        patient = users_collection.find_one({"email": patient_email})
+        if not patient:
+            return jsonify({'error': 'Patient not found'}), 404
+
+        if request.method == "GET":
+            prescriptions = list(prescriptions_collection.find({"patientEmail": patient_email}))
+            for item in prescriptions:
+                item['_id'] = str(item['_id'])
+            return jsonify(prescriptions), 200
+
+        elif request.method == "POST":
+            data = request.get_json()
+            prescription_doc = {
+                "patientEmail": patient_email,
+                "doctorId": data.get('doctorId'),
+                "medication": data.get('medication'),
+                "dosage": data.get('dosage'),
+                "frequency": data.get('frequency'),
+                "duration": data.get('duration'),
+                "instructions": data.get('instructions', ''),
+                "refills": data.get('refills', 0),
+                "prescribedDate": data.get('prescribedDate', datetime.now(timezone.utc).isoformat()),
+                "createdAt": datetime.now(timezone.utc)
+            }
+            result = prescriptions_collection.insert_one(prescription_doc)
+            return jsonify({
+                "message": "Prescription added successfully",
+                "prescriptionId": str(result.inserted_id)
+            }), 201
+
+    except Exception as e:
+        print(f"Error handling prescriptions: {e}")
+        return jsonify({'error': 'Failed to handle prescriptions'}), 500
+
+# Route to get or create visit notes
+@app.route("/api/patient/<string:patient_email>/visit-notes", methods=["GET", "POST"])
+@token_required
+def handle_visit_notes(current_user, patient_email):
+    """Get or create visit notes for a patient by email"""
+    try:
+        print(current_user)
+        if current_user.get('role') != 'doctor':
+            return jsonify({'error': 'Access denied'}), 403
+
+        if request.method == "GET":
+            notes = list(visit_notes_collection.find({"patientEmail": patient_email}))
+            for item in notes:
+                item['_id'] = str(item['_id'])
+            return jsonify(notes), 200
+
+        elif request.method == "POST":
+            data = request.get_json()
+            note_doc = {
+                "patientEmail": patient_email,
+                "doctorId": data.get('doctorId'),
+                "visitType": data.get('visitType'),
+                "chiefComplaint": data.get('chiefComplaint'),
+                "diagnosis": data.get('diagnosis'),
+                "treatment": data.get('treatment', ''),
+                "followUp": data.get('followUp', ''),
+                "notes": data.get('notes', ''),
+                "visitDate": data.get('visitDate', datetime.now(timezone.utc).isoformat()),
+                "createdAt": datetime.now(timezone.utc)
+            }
+            result = visit_notes_collection.insert_one(note_doc)
+            return jsonify({
+                "message": "Visit note added successfully",
+                "noteId": str(result.inserted_id)
+            }), 201
+
+    except Exception as e:
+        print(f"Error handling visit notes: {e}")
+        return jsonify({'error': 'Failed to handle visit notes'}), 500
+
 
 @app.route("/api/doctor/profile", methods=["PUT"])
 @token_required

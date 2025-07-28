@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useParams } from "react-router-dom";
 
 // import pages 
 import Login from "./pages/auth/Login";
@@ -19,7 +19,13 @@ import DoctorProfile from './pages/patient/DoctorProfile';
 import BookAppointment from './pages/patient/BookAppointment';
 import OAuthSuccess from './pages/doctor/0AuthSuccess';
 import DoctorAvailabilityPage from './pages/patient/DoctorAvailabilityPage';
+import PatientRecords from './pages/patient/PatientRecords';
 
+// Wrapper component to extract patientId from URL
+const PatientRecordsWrapper = () => {
+  const { patientEmail } = useParams();
+  return <PatientRecords isOpen={true} onClose={() => {}} patientEmail={patientEmail} />;
+};
 
 function App() {
   return(
@@ -49,6 +55,14 @@ function App() {
             element={
               <ProtectedRoute requiredRole="patient">
                 <PatientDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/doctor/patient-records/:patientEmail" 
+            element={
+              <ProtectedRoute requiredRole="doctor">
+                <PatientRecordsWrapper />
               </ProtectedRoute>
             } 
           />
