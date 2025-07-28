@@ -24,6 +24,7 @@ from routes.doctor_schedule_settings import schedule_settings
 from routes.doctor_schedule import doctor_schedule
 from routes.google_calendar import google_calendar
 from routes.doctor_public_route import doctor_routes
+from routes.notifications import notifications, schedule_appointment_reminders
 import traceback
 
 load_dotenv()
@@ -48,6 +49,7 @@ app.config['MAIL_PASSWORD'] = os.getenv('SENDER_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('SENDER_EMAIL')
 
 mail = Mail(app)
+app.mail = mail
 
 # Allowed image extensions only
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -150,6 +152,7 @@ app.register_blueprint(doctor_schedule)
 app.register_blueprint(google_calendar)
 app.register_blueprint(schedule_settings)
 app.register_blueprint(doctor_routes)
+app.register_blueprint(notifications)
 
 # Signup route
 @app.route("/api/signup", methods=["POST"])
@@ -385,8 +388,21 @@ def book_appointment(current_user):
             "time": time,
             "bookedAt": datetime.now(timezone.utc)
         }
-        appointments_collection.insert_one(appointment_doc)
-        return jsonify({"message": "Appointment booked and email sent"}), 200
+        result = appointments_collection.insert_one(appointment_doc)
+
+        # Send confirmation email with ICS
+        send_email_with_ics(name, email, doctor_name, date, time)
+
+        # Schedule reminders
+        schedule_appointment_reminders(
+            str(result.inserted_id),
+            email,
+            doctor_name,
+            name,
+            date,
+            time
+        )
+        return jsonify({"message": "Appointment booked, confirmation sent, and reminders scheduled"}), 200
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({"error": "Failed to send email"}), 500
