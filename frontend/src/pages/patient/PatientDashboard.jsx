@@ -1416,7 +1416,7 @@ useEffect(() => {
               <div className="d-flex flex-column flex-sm-row gap-2 justify-content-lg-end">
                 <button
                   className="btn text-white flex-fill flex-sm-grow-0"
-                  onClick={() => navigate("/doctors")}
+                  onClick={() => setActiveTab("available")}
                   style={{
                     background: "rgba(255,255,255,0.2)",
                     border: "1px solid rgba(255,255,255,0.3)",
