@@ -317,7 +317,7 @@ Your appointment with {doctor_name} is confirmed.
 ⏰ Time: {time_str}  
 📍 Location: Mediconnect Website
 
-An invitation has been attached to add this to your calendar.
+An invitation has been attached to add this to your calendar. Stay Relaxed! We will be sending the reminder before 1 hour of the appointment.
 
 Thank you,  
 MediConnect Team
@@ -369,20 +369,33 @@ def token_required(f):
 def book_appointment(current_user):
     data = request.get_json()
 
-    date = data.get('date')
-    time = data.get('time')
+    date = data.get('date')  # Format: 'YYYY-MM-DD'
+    time = data.get('time')  # Format: 'HH:MM'
     doctor_id = data.get('doctorId')
     doctor_name = data.get('doctorName')
 
-    if not all([date, time, doctor_name]):
+    if not all([date, time, doctor_id, doctor_name]):
         return jsonify({"error": "Missing required fields"}), 400
 
-    # Extract from DB
+    # Patient info from token
     name = f"{current_user.get('firstName', '')} {current_user.get('lastName', '')}".strip()
     email = current_user.get('email')
 
+    # ❗ Check if the slot is already booked
+    existing = appointments_collection.find_one({
+        "doctorId": doctor_id,
+        "date": date,
+        "time": time
+    })
+
+    if existing:
+        return jsonify({"error": "This appointment slot is already booked."}), 409
+
     try:
+        # Send confirmation email
         send_email_with_ics(name, email, doctor_name, date, time)
+
+        # Insert new appointment
         appointment_doc = {
             "patientName": name,
             "patientEmail": email,
@@ -409,7 +422,7 @@ def book_appointment(current_user):
         return jsonify({"message": "Appointment booked, confirmation sent, and reminders scheduled"}), 200
     except Exception as e:
         print(f"Error: {e}")
-        return jsonify({"error": "Failed to send email"}), 500
+        return jsonify({"error": "Failed to book appointment or send email"}), 500
 
 @app.route("/api/appointments/<doctor_id>/<date>", methods=["GET"])
 def get_booked_slots(doctor_id, date):
