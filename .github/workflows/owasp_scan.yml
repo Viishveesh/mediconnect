@@ -8,10 +8,10 @@ name: OWASP Scan
 on:
   push:
     branches:
-      - feature/2
+      - main
   pull_request:
     branches:
-      - feature/2
+      - main
 
 jobs:
   owasp:
