@@ -155,7 +155,7 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
             console.log(`Initializing peer with ID: ${peerId}`);
 
             const newPeer = new Peer(peerId, {
-                host: 'localhost',
+                host: 'https://mediconnect-peerjs.onrender.com',
                 port: 9001,
                 path: '/peerjs',
                 key: 'mediconnect',

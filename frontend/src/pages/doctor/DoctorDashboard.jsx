@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LogOut from '../auth/LogOut.jsx';
 import DoctorProfile from './DoctorProfile.jsx';
@@ -150,6 +151,7 @@ const DoctorDashboard = () => {
         setTodayAppointments(appointmentsRes.success ? appointmentsRes.data.today || [] : []);
         setUpcomingAppointments(appointmentsRes.success ? appointmentsRes.data.upcoming || [] : []);
         setPatientsList(patientsRes.success ? patientsRes.data || [] : []);
+        console.log(patientsList)
         setDoctorProfile(profileRes.success ? profileRes.data || {} : {
             specialization: 'Not specified',
             email: localStorage.getItem('email') || 'Not specified',
@@ -639,7 +641,7 @@ const DoctorDashboard = () => {
                         ) : (
                             <div className="row g-3">
                                 {patientsList.map(patient => (
-                                    <div key={patient._id || patient.id} className="col-12">
+                                    <div key={patient.userId || patient.id} className="col-12">
                                         <div className="row align-items-center p-3 border rounded g-3">
                                             <div className="col-12 col-sm-4">
                                                 <h6 className="mb-1">{patient.name}</h6>
@@ -655,9 +657,12 @@ const DoctorDashboard = () => {
                                             </div>
                                             <div className="col-12 col-sm-3">
                                                 <div className="d-grid gap-1">
-                                                    <button className="btn btn-primary btn-sm">
-                                                        <i className="fas fa-eye me-1"></i>View Records
-                                                    </button>
+                                                    <Link
+                    to={`/doctor/patient-records/${patient.email}`}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <i className="fas fa-eye me-1"></i>View Records
+                  </Link>
                                                     <button
                                                         className="btn btn-sm"
                                                         onClick={() => handleStartVideoConsultation({

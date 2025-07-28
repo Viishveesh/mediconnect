@@ -4,8 +4,8 @@ frontend/.gitignore
 backend/mediconnect-env
 
 .env
-frontend/build
 backend/__pycache__
+backend/routes/__pycache__
 
 # Assignment3 directory - unrelated to main project
 Assignment3/

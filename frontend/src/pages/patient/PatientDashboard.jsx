@@ -67,12 +67,41 @@ const PatientDashboard = () => {
     setSelectedDoctor(null);
   };
 
-  const calendarEvents = availabilitySlots.map((slot) => ({
-    title: "Available",
+  const bookedSlots = appointments
+  .filter(
+    (appt) =>
+      appt.doctorId === availabilityDoctorId && appt.status !== "cancelled"
+  )
+  .map((appt) => ({
+    date: appt.date,
+    time: appt.time,
+  }));
+
+
+  const calendarEvents = availabilitySlots.map((slot) => {
+  const slotDateObj = new Date(slot.startTime);
+  const slotDate = slotDateObj.toISOString().split("T")[0];  // e.g. "2025-07-28"
+const slotTime = slotDateObj.toISOString().substring(11, 16);  // e.g. "10:00"
+
+
+  const isBooked = bookedSlots.some(
+    (b) => b.date === slotDate && b.time === slotTime
+  );
+  console.log("Booking status", isBooked);
+  console.log("Slot date:", slotDate, "Slot time:", slotTime);
+console.log("Booked slots:", bookedSlots);
+
+
+  return {
+    title: isBooked ? "Booked" : "Available",
+    
     start: new Date(slot.startTime),
     end: new Date(slot.endTime),
     allDay: false,
-  }));
+    isBooked,
+  };
+});
+
 
   const confirmBookingHandler = async () => {
   if (!selectedEvent) return;
@@ -106,7 +135,12 @@ const PatientDashboard = () => {
     const result = await response.json();
 
     if (!response.ok) {
-      throw new Error(result.error || 'Booking request failed');
+      if (response.status === 409) {
+        alert('This slot has already been booked by another patient. Please select a different time.');
+      } else {
+        alert(result.error || 'Booking request failed');
+      }
+      return;
     }
 
     alert('Appointment booked! Confirmation email sent.');
@@ -123,6 +157,11 @@ const PatientDashboard = () => {
 
 
 const handleEventClick = ({ event }) => {
+  if (event.extendedProps.isBooked) {
+    alert("This slot is already booked. Please select another one.");
+    return;
+  }
+  
   setSelectedEvent(event);
   setShowConfirmModal(true);
 };
@@ -295,6 +334,8 @@ const handleEventClick = ({ event }) => {
     setappointLoading(false);
   }
 };
+
+
 
 useEffect(() => {
   fetchAppointments();
@@ -648,7 +689,7 @@ useEffect(() => {
         }}
       >
         <img
-          src={appointment.avatar || "/default-doctor.png"}
+          src={`https://mediconnect-backend-xe6f.onrender.com/api/files/${appointment.avatar}`}
           alt={appointment.doctorName}
           className="rounded-circle border border-white"
           style={{

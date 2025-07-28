@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 9000;
 
 // Enable CORS for all routes
 app.use(cors({
-    origin: ["https://dal-mediconnect.netlify.app", "http://localhost:3001", "https://mediconnect.vercel.app"],
+    origin: ["https://dal-mediconnect.netlify.app"],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
@@ -27,7 +27,7 @@ const peerServer = PeerServer({
     allow_discovery: true,
     alive_timeout: 60000,
     corsOptions: {
-        origin: ["https://dal-mediconnect.netlify.app", "http://localhost:3001", "https://mediconnect.vercel.app"],
+        origin: ["http://localhost:3000", "http://localhost:3001", "https://mediconnect.vercel.app"],
         credentials: true
     },
     generateClientId: () => {

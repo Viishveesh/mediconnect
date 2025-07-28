@@ -19,7 +19,7 @@ const Upperpage = () => {
               Connect with healthcare professionals instantly. Save time, and access quality medical care from anywhere .
             </p>
             <div className="d-flex flex-wrap gap-3">
-              <button className="btn btn-outline-light btn-lg book-btn">
+              <button className="btn btn-lg btn-primary book-btn">
                 Book an Appointment
               </button>
               
