@@ -1243,7 +1243,6 @@ def get_appointment_video_session(current_user, appointment_id):
         print(f"Error getting appointment video session: {e}")
         return jsonify({"error": "Failed to get video session"}), 500
 
-# Update the /api/appointments endpoint in app.py
 @app.route('/api/appointments', methods=['GET'])
 @token_required
 def get_appointments(current_user):
@@ -1252,28 +1251,39 @@ def get_appointments(current_user):
         user_role = current_user.get('role')
 
         if user_role == 'patient':
-            # Get appointments for patient
             appointments = list(appointments_collection.find({"patientEmail": user_email}))
         elif user_role == 'doctor':
-            # Get appointments for doctor
             doctor_name = f"Dr. {current_user.get('firstName', '')} {current_user.get('lastName', '')}".strip()
             appointments = list(appointments_collection.find({"doctorName": doctor_name}))
-            specialization = current_user.get('specialization', 'Not specified')
-
         else:
             return jsonify({"error": "Invalid user role"}), 400
 
-        # Convert ObjectId to string for frontend
         for appt in appointments:
             appt['_id'] = str(appt['_id'])
             appointment_datetime = datetime.strptime(f"{appt['date']} {appt['time']}", "%Y-%m-%d %H:%M")
             current_datetime = datetime.now()
-
             appt['status'] = 'upcoming' if appointment_datetime > current_datetime else 'completed'
+
+            doctor_id = appt.get('doctorId')
+
+            if doctor_id:
+                try:
+                    doctor_obj_id = ObjectId(doctor_id)
+                    doctor_profile = doctor_profiles_collection.find_one({"_id": doctor_obj_id})
+
+                    if doctor_profile and 'profilePhoto' in doctor_profile:
+                        appt['avatar'] = doctor_profile['profilePhoto']
+                    else:
+                        appt['avatar'] = None
+                except Exception as e:
+                    print(f"DEBUG: Error in doctorId lookup: {e}")
+                    appt['avatar'] = None
+            else:
+                appt['avatar'] = None
+
 
             if user_role == 'doctor':
                 appt['specialization'] = current_user.get('specialization', 'Not specified')
-
 
         return jsonify({"appointments": appointments}), 200
 

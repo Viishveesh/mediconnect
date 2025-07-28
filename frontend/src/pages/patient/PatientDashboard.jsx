@@ -689,7 +689,7 @@ useEffect(() => {
         }}
       >
         <img
-          src={appointment.avatar || "/default-doctor.png"}
+          src={`http://localhost:5000/api/files/${appointment.avatar}`}
           alt={appointment.doctorName}
           className="rounded-circle border border-white"
           style={{
