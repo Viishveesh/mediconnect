@@ -118,7 +118,7 @@ console.log("Booked slots:", bookedSlots);
     const dateStr = startDate.toISOString().split('T')[0];
     const timeStr = startDate.toISOString().substring(11, 16);
 
-    const response = await fetch(`https://mediconnect-7v1m.onrender.com/api/book`, {
+    const response = await fetch(`https://mediconnect-backend-xe6f.onrender.com/api/book`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -177,7 +177,7 @@ const handleEventClick = ({ event }) => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        `https://mediconnect-7v1m.onrender.com/api/doctors/${doctorUserId}/availability`,
+        `https://mediconnect-backend-xe6f.onrender.com/api/doctors/${doctorUserId}/availability`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -266,7 +266,7 @@ const handleEventClick = ({ event }) => {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get(
-        "https://mediconnect-7v1m.onrender.com/api/patient/profile",
+        "https://mediconnect-backend-xe6f.onrender.com/api/patient/profile",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -279,7 +279,7 @@ const handleEventClick = ({ event }) => {
 
   const fetchAvailableDoctors = () => {
     axios
-      .get("https://mediconnect-7v1m.onrender.com/api/doctors", {
+      .get("https://mediconnect-backend-xe6f.onrender.com/api/doctors", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       })
       .then((res) => setAvailableDoctors(res.data))
@@ -318,7 +318,7 @@ const handleEventClick = ({ event }) => {
   const fetchAppointments = async () => {
   try {
     const token = localStorage.getItem("token");
-    const response = await fetch("https://mediconnect-7v1m.onrender.com/api/appointments", {
+    const response = await fetch("https://mediconnect-backend-xe6f.onrender.com/api/appointments", {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -471,7 +471,7 @@ useEffect(() => {
   const getDoctorEmail = async (doctorId) => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get(`https://mediconnect-7v1m.onrender.com/api/doctors/${doctorId}/details`, {
+      const response = await axios.get(`https://mediconnect-backend-xe6f.onrender.com/api/doctors/${doctorId}/details`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return response.data.email;
@@ -689,7 +689,7 @@ useEffect(() => {
         }}
       >
         <img
-          src={`https://mediconnect-7v1m.onrender.com/api/files/${appointment.avatar}`}
+          src={`https://mediconnect-backend-xe6f.onrender.com/api/files/${appointment.avatar}`}
           alt={appointment.doctorName}
           className="rounded-circle border border-white"
           style={{
@@ -936,7 +936,7 @@ useEffect(() => {
               <div className="card-body p-4">
                 <div className="d-flex align-items-start gap-3">
                   <img
-                    src={`https://mediconnect-7v1m.onrender.com/api/files/${doctor.profilePhoto}`}
+                    src={`https://mediconnect-backend-xe6f.onrender.com/api/files/${doctor.profilePhoto}`}
                     alt={doctor.name}
                     className="rounded-circle"
                     style={{
@@ -1228,7 +1228,7 @@ useEffect(() => {
                           {message.image_attachment && (
                             <div className="mb-1">
                               <img
-                                src={`https://mediconnect-7v1m.onrender.com/api/files/${message.image_attachment.file_id}`}
+                                src={`https://mediconnect-backend-xe6f.onrender.com/api/files/${message.image_attachment.file_id}`}
                                 alt={message.image_attachment.original_name}
                                 style={{
                                   maxWidth: "200px",
@@ -1238,7 +1238,7 @@ useEffect(() => {
                                 }}
                                 onClick={() =>
                                   window.open(
-                                    `https://mediconnect-7v1m.onrender.com/api/files/${message.image_attachment.file_id}`,
+                                    `https://mediconnect-backend-xe6f.onrender.com/api/files/${message.image_attachment.file_id}`,
                                     "_blank"
                                   )
                                 }
@@ -1425,7 +1425,7 @@ useEffect(() => {
                       <img
                         alt="Profile"
                         className="rounded-circle"
-                        src={`https://mediconnect-7v1m.onrender.com/api/files/${patientProfile.profilePhoto}`}
+                        src={`https://mediconnect-backend-xe6f.onrender.com/api/files/${patientProfile.profilePhoto}`}
                         style={{
                           width: "100%",
                           height: "100%",

@@ -58,7 +58,7 @@ export default function BookAppointment() {
     const fetchBookedSlots = async () => {
       if (!selectedDate) return;
       try {
-        const res = await axios.get(`https://mediconnect-7v1m.onrender.com/api/appointments/${doctorId}/${selectedDate}`);
+        const res = await axios.get(`https://mediconnect-backend-xe6f.onrender.com/api/appointments/${doctorId}/${selectedDate}`);
         setBookedSlots(res.data.bookedSlots || []);
       } catch (err) {
         console.error("Failed to fetch booked slots", err);
@@ -77,7 +77,7 @@ export default function BookAppointment() {
 
     try {
       await axios.post(
-        'https://mediconnect-7v1m.onrender.com/api/book',
+        'https://mediconnect-backend-xe6f.onrender.com/api/book',
         {
           date: selectedDate,
           time: selectedSlot,

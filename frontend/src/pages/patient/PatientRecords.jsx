@@ -64,7 +64,7 @@ const PatientRecords = ({ isOpen, onClose, patientEmail }) => {
     const fetchDoctorProfile = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('https://mediconnect-7v1m.onrender.com/api/doctor/profile', {
+            const response = await axios.get('https://mediconnect-backend-xe6f.onrender.com/api/doctor/profile', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setDoctorProfile(response.data);
@@ -113,18 +113,18 @@ const PatientRecords = ({ isOpen, onClose, patientEmail }) => {
             const normalizedEmail = patientEmail.toLowerCase();
 
             const patientResponse = await axios.get(
-                `https://mediconnect-7v1m.onrender.com/api/doctor/${doctorId}/patient/${encodeURIComponent(normalizedEmail)}`,
+                `https://mediconnect-backend-xe6f.onrender.com/api/doctor/${doctorId}/patient/${encodeURIComponent(normalizedEmail)}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
             const [historyRes, prescriptionsRes, notesRes] = await Promise.all([
-                axios.get(`https://mediconnect-7v1m.onrender.com/api/patient/${encodeURIComponent(normalizedEmail)}/medical-history`, {
+                axios.get(`https://mediconnect-backend-xe6f.onrender.com/api/patient/${encodeURIComponent(normalizedEmail)}/medical-history`, {
                     headers: { Authorization: `Bearer ${token}` }
                 }).catch(() => ({ data: [] })),
-                axios.get(`https://mediconnect-7v1m.onrender.com/api/patient/${encodeURIComponent(normalizedEmail)}/prescriptions`, {
+                axios.get(`https://mediconnect-backend-xe6f.onrender.com/api/patient/${encodeURIComponent(normalizedEmail)}/prescriptions`, {
                     headers: { Authorization: `Bearer ${token}` }
                 }).catch(() => ({ data: [] })),
-                axios.get(`https://mediconnect-7v1m.onrender.com/api/patient/${encodeURIComponent(normalizedEmail)}/visit-notes`, {
+                axios.get(`https://mediconnect-backend-xe6f.onrender.com/api/patient/${encodeURIComponent(normalizedEmail)}/visit-notes`, {
                     headers: { Authorization: `Bearer ${token}` }
                 }).catch(() => ({ data: [] }))
             ]);
@@ -152,7 +152,7 @@ const PatientRecords = ({ isOpen, onClose, patientEmail }) => {
         try {
             const token = localStorage.getItem('token');
             await axios.post(
-                `https://mediconnect-7v1m.onrender.com/api/patient/${encodeURIComponent(patientEmail)}/prescriptions`,
+                `https://mediconnect-backend-xe6f.onrender.com/api/patient/${encodeURIComponent(patientEmail)}/prescriptions`,
                 {
                     ...newPrescription,
                     doctorId: localStorage.getItem('doctorId'),
@@ -187,7 +187,7 @@ const PatientRecords = ({ isOpen, onClose, patientEmail }) => {
         try {
             const token = localStorage.getItem('token');
             await axios.post(
-                `https://mediconnect-7v1m.onrender.com/api/patient/${encodeURIComponent(patientEmail)}/visit-notes`,
+                `https://mediconnect-backend-xe6f.onrender.com/api/patient/${encodeURIComponent(patientEmail)}/visit-notes`,
                 {
                     ...newNote,
                     doctorId: localStorage.getItem('doctorId'),
@@ -222,7 +222,7 @@ const PatientRecords = ({ isOpen, onClose, patientEmail }) => {
         try {
             const token = localStorage.getItem('token');
             await axios.post(
-                `https://mediconnect-7v1m.onrender.com/api/patient/${encodeURIComponent(patientEmail)}/vitals`,
+                `https://mediconnect-backend-xe6f.onrender.com/api/patient/${encodeURIComponent(patientEmail)}/vitals`,
                 {
                     ...newVitals,
                     doctorId: localStorage.getItem('doctorId'),
@@ -690,7 +690,7 @@ const PatientRecords = ({ isOpen, onClose, patientEmail }) => {
                                             <img
                                                 alt="Profile"
                                                 className="rounded-circle"
-                                                src={`https://mediconnect-7v1m.onrender.com/api/files/${doctorProfile.profilePhoto}`}
+                                                src={`https://mediconnect-backend-xe6f.onrender.com/api/files/${doctorProfile.profilePhoto}`}
                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                             />
                                         ) : (

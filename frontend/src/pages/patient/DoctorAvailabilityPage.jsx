@@ -16,7 +16,7 @@ const DoctorAvailabilityPage = () => {
       try {
         const token = localStorage.getItem("token");
         const res = await axios.get(
-          `https://mediconnect-7v1m.onrender.com/api/doctors/${doctorId}/availability`,
+          `https://mediconnect-backend-xe6f.onrender.com/api/doctors/${doctorId}/availability`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setAvailability(res.data);

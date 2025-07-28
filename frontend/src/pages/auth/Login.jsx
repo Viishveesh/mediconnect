@@ -20,7 +20,7 @@ const Login = ({ toggleForm }) => {
     e.preventDefault();
 
     try {
-      const res = await axios.post("https://mediconnect-7v1m.onrender.com/api/login", formData);
+      const res = await axios.post("https://mediconnect-backend-xe6f.onrender.comapi/login", formData);
       const { token, role, doctorId, name, email } = res.data;
       const decoded = jwtDecode(token);
 

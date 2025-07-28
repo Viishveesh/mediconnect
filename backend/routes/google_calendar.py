@@ -19,7 +19,7 @@ os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 CLIENT_SECRETS_FILE = os.getenv("GOOGLE_CLIENT_SECRET_FILE")
 SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
-REDIRECT_URI = "https://mediconnect-7v1m.onrender.com/google/callback"
+REDIRECT_URI = "https://mediconnect-backend-xe6f.onrender.com/google/callback"
 
 
 # Login 

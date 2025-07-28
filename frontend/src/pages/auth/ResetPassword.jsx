@@ -28,7 +28,7 @@ function ResetPassword() {
     
 
     try {
-      const res = await axios.post("https://mediconnect-7v1m.onrender.com/api/reset-password", {
+      const res = await axios.post("https://mediconnect-backend-xe6f.onrender.com/api/reset-password", {
         token,
         newPassword: formData.newPassword,
       });

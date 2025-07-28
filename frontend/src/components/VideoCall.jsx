@@ -74,7 +74,7 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
             const token = localStorage.getItem('token');
 
             // First, check if there's already an active session for this appointment
-            const checkResponse = await fetch(`https://mediconnect-7v1m.onrender.com/api/appointments/${appointmentId}/video-session`, {
+            const checkResponse = await fetch(`https://mediconnect-backend-xe6f.onrender.com/api/appointments/${appointmentId}/video-session`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -94,7 +94,7 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
 
             // If no existing session, create a new one
             console.log('Creating new video session for appointment:', appointmentId);
-            const response = await fetch(`https://mediconnect-7v1m.onrender.com/api/video/session/create`, {
+            const response = await fetch(`https://mediconnect-backend-xe6f.onrender.com/api/video/session/create`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -320,7 +320,7 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
             console.log(`Joining session ${sessionId} with roomId: ${currentRoomId}`);
 
             // Join video session in backend
-            const response = await fetch(`https://mediconnect-7v1m.onrender.com/api/video/session/${sessionId}/join`, {
+            const response = await fetch(`https://mediconnect-backend-xe6f.onrender.com/api/video/session/${sessionId}/join`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -631,7 +631,7 @@ const VideoCall = ({ appointmentId, onCallEnd }) => {
 
             if (sessionId) {
                 const token = localStorage.getItem('token');
-                await fetch(`https://mediconnect-7v1m.onrender.com/api/video/session/${sessionId}/end`, {
+                await fetch(`https://mediconnect-backend-xe6f.onrender.com/api/video/session/${sessionId}/end`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

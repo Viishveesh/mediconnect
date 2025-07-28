@@ -18,7 +18,7 @@ const OAuthSuccess = () => {
       localStorage.setItem("role", decoded.role);
 
       // Sync busy slots now
-      fetch(`https://mediconnect-7v1m.onrender.com/google/sync-busy`, {
+      fetch(`https://mediconnect-backend-xe6f.onrender.com/google/sync-busy`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
