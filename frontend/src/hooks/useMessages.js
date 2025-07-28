@@ -7,31 +7,41 @@ export const useMessages = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   // Load conversations on component mount
-  const loadConversations = useCallback(async () => {
+  const loadConversations = useCallback(async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading && !initialLoadComplete) {
+        setLoading(true);
+      }
       setError(null);
       const response = await messageService.getConversations();
       setConversations(response.conversations || []);
+      if (!initialLoadComplete) {
+        setInitialLoadComplete(true);
+      }
     } catch (err) {
       setError('Failed to load conversations');
       console.error('Error loading conversations:', err);
     } finally {
-      setLoading(false);
+      if (showLoading && !initialLoadComplete) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [initialLoadComplete]);
 
   // Load messages for a specific conversation
-  const loadMessages = useCallback(async (conversationId, otherUserEmail) => {
+  const loadMessages = useCallback(async (conversationId, otherUserEmail, showLoading = true) => {
     if (!conversationId) {
       setMessages([]);
       return;
     }
 
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       setError(null);
       const response = await messageService.getMessages(conversationId, otherUserEmail);
       setMessages(response.messages || []);
@@ -39,7 +49,9 @@ export const useMessages = () => {
       setError('Failed to load messages');
       console.error('Error loading messages:', err);
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -104,10 +116,28 @@ export const useMessages = () => {
     return conversations.reduce((total, conv) => total + (conv.unread_count || 0), 0);
   }, [conversations]);
 
-  // Initialize conversations on mount
+  // Auto-refresh functionality
   useEffect(() => {
     loadConversations();
+
+    // Set up auto-refresh interval for conversations
+    const conversationInterval = setInterval(() => {
+      loadConversations(false); // Silent refresh
+    }, 5000); // Refresh every 5 seconds
+
+    return () => clearInterval(conversationInterval);
   }, [loadConversations]);
+
+  // Auto-refresh messages for active conversation
+  useEffect(() => {
+    if (!activeConversation) return;
+
+    const messageInterval = setInterval(() => {
+      loadMessages(activeConversation.conversation_id, activeConversation.other_user_email, false); // Silent refresh
+    }, 3000); // Refresh every 3 seconds
+
+    return () => clearInterval(messageInterval);
+  }, [activeConversation, loadMessages]);
 
   return {
     conversations,
