@@ -895,7 +895,7 @@ useEffect(() => {
               <div className="card-body p-4">
                 <div className="d-flex align-items-start gap-3">
                   <img
-                    src={doctor.profilePhoto || "/default-avatar.png"}
+                    src={`http://localhost:5000/api/files/${doctor.profilePhoto}`}
                     alt={doctor.name}
                     className="rounded-circle"
                     style={{
