@@ -1229,20 +1229,22 @@ def get_appointments(current_user):
             # Get appointments for doctor
             doctor_name = f"Dr. {current_user.get('firstName', '')} {current_user.get('lastName', '')}".strip()
             appointments = list(appointments_collection.find({"doctorName": doctor_name}))
+            specialization = current_user.get('specialization', 'Not specified')
+
         else:
             return jsonify({"error": "Invalid user role"}), 400
 
         # Convert ObjectId to string for frontend
         for appt in appointments:
             appt['_id'] = str(appt['_id'])
-            # Add appointment status based on date/time
             appointment_datetime = datetime.strptime(f"{appt['date']} {appt['time']}", "%Y-%m-%d %H:%M")
             current_datetime = datetime.now()
 
-            if appointment_datetime > current_datetime:
-                appt['status'] = 'upcoming'
-            else:
-                appt['status'] = 'completed'
+            appt['status'] = 'upcoming' if appointment_datetime > current_datetime else 'completed'
+
+            if user_role == 'doctor':
+                appt['specialization'] = current_user.get('specialization', 'Not specified')
+
 
         return jsonify({"appointments": appointments}), 200
 
@@ -1489,7 +1491,7 @@ def search_doctors(current_user):
                     'specialization': doc.get('specialization', ''),
                     'experience': doc.get('experience', ''),
                     'qualification': doc.get('qualification', ''),
-                    'profilePhoto': doc.get('profilePhoto', ''),
+                    'profilePhoto': f"http://localhost:5000/uploads/{doc['profilePhoto']}" if doc.get('profilePhoto') else '',
                     'consultationFee': doc.get('consultationFee', ''),
                     'rating': doc.get('rating', 0)
                 })
