@@ -27,7 +27,7 @@ const peerServer = PeerServer({
     allow_discovery: true,
     alive_timeout: 60000,
     corsOptions: {
-        origin: ["https://dal-mediconnect.netlify.app/"],
+        origin: ["http://localhost:3000", "http://localhost:3001", "https://mediconnect.vercel.app"],
         credentials: true
     },
     generateClientId: () => {

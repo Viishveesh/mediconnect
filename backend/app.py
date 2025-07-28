@@ -223,7 +223,7 @@ def request_password_reset():
         return jsonify({"message": "No account with that email."}), 404
 
     token = serializer.dumps(email, salt="password-reset-salt")
-    reset_link = f"http://localhost:3000/reset-password?token={token}"
+    reset_link = f"https://dal-mediconnect.netlify.app/reset-password?token={token}"
 
     try:
         msg = Message("Password Reset Request", recipients=[email])
