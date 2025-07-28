@@ -66,7 +66,7 @@ const DoctorDashboard = () => {
     const fetchSettings = async () => {
         try {
             const res = await axios.get(
-                `http://localhost:5000/doctor/schedule-settings?doctorId=${localStorage.getItem("doctorId")}`
+                `https://mediconnect-7v1m.onrender.com/doctor/schedule-settings?doctorId=${localStorage.getItem("doctorId")}`
             );
             if (res.status === 200) setSettings(res.data);
         } catch (err) {
@@ -76,7 +76,7 @@ const DoctorDashboard = () => {
 
     const saveSettings = async () => {
         try {
-            await axios.post("http://localhost:5000/doctor/schedule-settings", {
+            await axios.post("https://mediconnect-7v1m.onrender.com/doctor/schedule-settings", {
                 doctorId: localStorage.getItem("doctorId"),
                 ...settings,
             });
@@ -90,7 +90,7 @@ const DoctorDashboard = () => {
     const fetchDoctorProfile = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:5000/api/doctor/profile', {
+            const response = await axios.get('https://mediconnect-7v1m.onrender.com/api/doctor/profile', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setDoctorProfile(response.data);
@@ -120,13 +120,13 @@ const DoctorDashboard = () => {
         };
 
         const [appointmentsRes, patientsRes, profileRes] = await Promise.all([
-            fetchWithErrorHandling(`http://localhost:5000/api/doctor/${doctorId}/appointments/today`, {
+            fetchWithErrorHandling(`https://mediconnect-7v1m.onrender.com/api/doctor/${doctorId}/appointments/today`, {
                 headers: { Authorization: `Bearer ${token}` }
             }),
-            fetchWithErrorHandling(`http://localhost:5000/api/doctor/${doctorId}/patients`, {
+            fetchWithErrorHandling(`https://mediconnect-7v1m.onrender.com/api/doctor/${doctorId}/patients`, {
                 headers: { Authorization: `Bearer ${token}` }
             }),
-            fetchWithErrorHandling('http://localhost:5000/api/doctor/profile', {
+            fetchWithErrorHandling('https://mediconnect-7v1m.onrender.com/api/doctor/profile', {
                 headers: { Authorization: `Bearer ${token}` }
             })
         ]);
@@ -1009,7 +1009,7 @@ const DoctorDashboard = () => {
                                                     {message.image_attachment && (
                                                         <div className="mb-1">
                                                             <img
-                                                                src={`http://localhost:5000/api/files/${message.image_attachment.file_id}`}
+                                                                src={`https://mediconnect-7v1m.onrender.com/api/files/${message.image_attachment.file_id}`}
                                                                 alt={message.image_attachment.original_name}
                                                                 style={{
                                                                     maxWidth: '200px',
@@ -1017,7 +1017,7 @@ const DoctorDashboard = () => {
                                                                     borderRadius: '8px',
                                                                     cursor: 'pointer'
                                                                 }}
-                                                                onClick={() => window.open(`http://localhost:5000/api/files/${message.image_attachment.file_id}`, '_blank')}
+                                                                onClick={() => window.open(`https://mediconnect-7v1m.onrender.com/api/files/${message.image_attachment.file_id}`, '_blank')}
                                                             />
                                                             <br />
                                                             <small className={isCurrentUser ? 'text-white-50' : 'text-muted'}>
@@ -1298,7 +1298,7 @@ const DoctorDashboard = () => {
                                             <img
                                                 alt="Profile"
                                                 className="rounded-circle"
-                                                src={`http://localhost:5000/api/files/${doctorProfile.profilePhoto}`}
+                                                src={`https://mediconnect-7v1m.onrender.com/api/files/${doctorProfile.profilePhoto}`}
                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                             />
                                         ) : (
