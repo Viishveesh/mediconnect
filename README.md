@@ -46,7 +46,7 @@ cd mediConnect
 ```bash
 cd frontend
 npm install
-### Edit URL's to https://localhost:5000 to run in local
+# Edit URL's to https://localhost:5000 to run in local
 npm run start
 ```
 
@@ -54,16 +54,16 @@ npm run start
 
 ```bash
 cd backend
-### Add env variables
+# Add env variables
+pip install -r requirements.txt
+python app.py
+```
+
 ### 🔐 Example `.env` File
 
 Here’s an example of how to structure your `.env` file:
 
 ![.env Example](./env-image.jpg)
-
-pip install -r requirements.txt
-python app.py
-```
 ---
 
 ## 🛠️ Information about API
