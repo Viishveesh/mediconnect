@@ -8,17 +8,29 @@ MediConnect is a telehealth web application that facilitates seamless virtual in
 
 👉 https://dal-mediconnect.netlify.app/
 
-
 ---
 
 ## 🚀 Features
 
-- 👨‍⚕️ User roles for **doctors** and **patients**
-- 📅 Appointment scheduling
-- 📹 Secure video consultations
-- 🧾 Medical history and prescription storage
-- 🔐 Login and registration functionality
-- 📬 Email confirmations/reminders
+- 👨‍⚕️ Doctor and Patient Registration/Login with JWT Auth
+- 🗓️ Smart Appointment Scheduling with real-time conflict detection
+- 📞 Secure Video Consultations (PeerJS/WebRTC)
+- 💬 Encrypted Messaging with File Sharing
+- 🧾 Prescriptions, Visit Notes, Medical History Management
+- 📅 Google Calendar Sync for Doctors
+- 📊 Doctor Dashboard with Statistics
+- 🔔 Email Notifications for Appointment Reminders
+- 🛡️ OWASP ZAP Security Scanning in CI Pipeline
+
+---
+
+## 🧪 Tech Stack
+- Frontend: React + BootStrap 
+- Backend: Python (Flask)
+- Database: MongoDB
+- Authentication: JWT
+- Video & Messaging: WebRTC (PeerJS), Diffie-Hellman encryption
+- DevOps: Docker, GitHub Actions (CI), OWASP ZAP
 
 ---
 
@@ -38,7 +50,6 @@ MediConnect is a telehealth web application that facilitates seamless virtual in
 git clone https://github.com/Viishveesh/mediconnect.git
 cd mediConnect
 ```
-
 ---
 
 ### 2. Run Frontend
@@ -68,7 +79,6 @@ Here’s an example of how to structure your `.env` file:
 
 ## 🛠️ Information about API
 
-
 🔐 Authentication Endpoints
 | Endpoint          | Method | Description                              |
 | ----------------- | ------ | ---------------------------------------- |
@@ -76,7 +86,6 @@ Here’s an example of how to structure your `.env` file:
 | `/login`          | POST   | Authenticate user and return JWT token.  |
 | `/request-reset`  | POST   | Request a password reset link via email. |
 | `/reset-password` | POST   | Reset password using a secure token.     |
-
 
 👨‍⚕️ Doctor Endpoints
 | Endpoint                                      | Method | Description                                                   |
@@ -93,7 +102,6 @@ Here’s an example of how to structure your `.env` file:
 | `/doctor/dashboard/stats`                     | GET    | Get dashboard statistics for a doctor.                        |
 | `/doctors/<doctor_id>/availability`           | GET    | Get availability for a specific doctor.                       |
 
-
 🧑‍⚕️ Patient Endpoints
 | Endpoint                                   | Method   | Description                                   |
 | ------------------------------------------ | -------- | --------------------------------------------- |
@@ -105,14 +113,12 @@ Here’s an example of how to structure your `.env` file:
 | `/patient/<patient_email>/prescriptions`   | GET/POST | Get or create prescriptions for a patient.    |
 | `/patient/<patient_email>/visit-notes`     | GET/POST | Get or create visit notes for a patient.      |
 
-
 📅 Appointment Endpoints
 | Endpoint                           | Method | Description                                       |
 | ---------------------------------- | ------ | ------------------------------------------------- |
 | `/book`                            | POST   | Book a new appointment and send confirmation.     |
 | `/appointments/<doctor_id>/<date>` | GET    | Get booked slots for a doctor on a specific date. |
 | `/appointments`                    | GET    | Get appointments for the current user.            |
-
 
 💬 Messaging & Conversations
 | Endpoint                                                 | Method | Description                                 |
@@ -124,13 +130,11 @@ Here’s an example of how to structure your `.env` file:
 | `/conversations/<conversation_id>/key-exchange/initiate` | POST   | Initiate Diffie-Hellman key exchange.       |
 | `/conversations/<conversation_id>/key-exchange/complete` | POST   | Complete Diffie-Hellman key exchange.       |
 
-
 🖼️ File Uploads
 | Endpoint            | Method | Description                                 |
 | ------------------- | ------ | ------------------------------------------- |
 | `/upload`           | POST   | Upload and compress an image for messaging. |
 | `/files/<filename>` | GET    | Serve an uploaded image file.               |
-
 
 📹 Video Session Endpoints
 | Endpoint                                       | Method | Description                                    |
@@ -141,14 +145,12 @@ Here’s an example of how to structure your `.env` file:
 | `/video/session/<session_id>/status`           | GET    | Get the status of a video session.             |
 | `/appointments/<appointment_id>/video-session` | GET    | Get video session for a specific appointment.  |
 
-
 📆 Google Calendar Integration
 | Endpoint            | Method | Description                                       |
 | ------------------- | ------ | ------------------------------------------------- |
 | `/google/login`     | GET    | Initiate Google OAuth login for calendar access.  |
 | `/google/callback`  | GET    | Handle Google OAuth callback and store token.     |
 | `/google/sync-busy` | GET    | Sync busy slots from Google Calendar to database. |
-
 
 🗓️ Doctor Schedule Management
 | Endpoint                         | Method | Description                                            |
@@ -160,7 +162,6 @@ Here’s an example of how to structure your `.env` file:
 | `/doctor/busy`                   | GET    | Get all busy time slots for a doctor.                  |
 | `/doctor/busy/<slot_id>`         | DELETE | Delete a specific busy time slot.                      |
 | `/doctor/schedule`               | GET    | Get combined availability and busy slots for a doctor. |
-
 
 ⚙️ Schedule Settings
 | Endpoint                    | Method | Description                                      |
