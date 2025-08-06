@@ -6,7 +6,7 @@ MediConnect is a telehealth web application that facilitates seamless virtual in
 
 ## 🌐 Live Demo
 
-👉 [Live Web App](https://dal-mediconnect.netlify.app/) https://dal-mediconnect.netlify.app/
+👉 https://dal-mediconnect.netlify.app/
 
 
 ---
@@ -68,22 +68,6 @@ Here’s an example of how to structure your `.env` file:
 
 ## 🛠️ Information about API
 
-| Endpoint             | Method     | Description                        |
-| -------------------- | ---------- | ---------------------------------- |
-| `/login`             | `POST`     | Authenticate user                  |
-| `/signup`            | `POST`     | Register new doctor or patient     |
-| `/request-reset`     | `POST`     | Reset password of the user         |
-| `/appointments`      | `GET/POST` | View or create appointments        |
-| `/api/conversations` | `GET/POST` | send or receive messages           |
-| `/schedule/:id`      | `GET/POST` | Add and show doctor's schedule     |
-| `/profile`           | `GET/POST` | Add and display both users profile |
-| `/availability`      | `GET`      | Display availability to patients   |
-| `/book`              | `POST`     | Add the patient's booking          |
-
-
-
-📡 REST API Endpoints
-The REST API is organized into categories, each handling specific functionality. All endpoints are prefixed with /api/ unless otherwise specified.
 
 🔐 Authentication Endpoints
 | Endpoint          | Method | Description                              |
