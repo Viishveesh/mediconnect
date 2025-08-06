@@ -42,15 +42,12 @@ MediConnect is a telehealth web application that facilitates seamless virtual in
 - Python 3.x (for backend)
 - Flask & required Python packages
 
----
-
 ### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/Viishveesh/mediconnect.git
 cd mediConnect
 ```
----
 
 ### 2. Run Frontend
 
